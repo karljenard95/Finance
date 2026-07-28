@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Ledger — Personal Finance Dashboard</title>
+
+<!-- PWA setup -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#16233a">
+<meta name="description" content="Track your income, expenses and savings goals — backed live by Google Sheets.">
+<link rel="icon" type="image/png" href="./favicon.png">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ledger">
+<meta name="mobile-web-app-capable" content="yes">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --ink:#16233a;
+    --ink-2:#22314d;
+    --ink-soft:#5b6a85;
+    --paper:#f3eee0;
+    --paper-2:#fbf8f0;
+    --card:#fffdf8;
+    --rule:#ddd3b8;
+    --rule-soft:#ebe4d1;
+    --text:#1c2432;
+    --text-soft:#5c6478;
+    --text-dim:#9a9683;
+    --income:#1f6e5c;
+    --income-soft:rgba(31,110,92,0.10);
+    --expense:#a13d2c;
+    --expense-soft:rgba(161,61,44,0.09);
+    --gold:#b8863b;
+    --gold-2:#8a6427;
+    --gold-soft:rgba(184,134,59,0.14);
+    --radius:14px;
+    --radius-sm:9px;
+    --shadow-card:0 1px 0 rgba(255,255,255,0.7) inset, 0 14px 30px -22px rgba(22,35,58,0.35);
+  }
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  html, body{ max-width:100%; overflow-x:hidden; }
+  body{
+    margin:0;
+    min-height:100vh;
+    min-height:100dvh;
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    background:
+      repeating-linear-gradient(180deg, transparent 0 38px, rgba(184,134,59,0.06) 38px 39px),
+      var(--paper);
+    padding-bottom:env(safe-area-inset-bottom);
+    -webkit-tap-highlight-color:transparent;
+  }
+  img, svg{ max-width:100%; }
+  button, input, select{ font-size:16px; font-family:inherit; }
+  .mono{ font-family:'JetBrains Mono',monospace; letter-spacing:0.01em; }
+  .display{ font-family:'Fraunces',serif; }
+  ::selection{ background:rgba(184,134,59,0.35); }
+  a{ color:inherit; }
+  :focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration:0.001ms !important; transition-duration:0.001ms !important; }
+    html{ scroll-behavior:auto; }
+  }
+
+  .app{
+    max-width:1180px; margin:0 auto;
+    padding:0 clamp(0.9rem, 4vw, 1.5rem) 3rem;
+    padding-left:max(clamp(0.9rem, 4vw, 1.5rem), env(safe-area-inset-left));
+    padding-right:max(clamp(0.9rem, 4vw, 1.5rem), env(safe-area-inset-right));
+  }
+
+  .top-bar{
+    background:linear-gradient(180deg, var(--ink), var(--ink-2));
+    border-bottom:3px solid var(--gold);
+    box-shadow:0 12px 28px -18px rgba(22,35,58,0.6);
+  }
+  header{
+    max-width:1180px; margin:0 auto;
+    padding:1.15rem clamp(0.9rem, 4vw, 1.5rem);
+    padding-left:max(clamp(0.9rem, 4vw, 1.5rem), env(safe-area-inset-left));
+    padding-right:max(clamp(0.9rem, 4vw, 1.5rem), env(safe-area-inset-right));
+    display:flex; justify-content:space-between; align-items:center;
+    flex-wrap:wrap; gap:1rem;
+  }
+  .brand{ display:flex; align-items:center; gap:0.85rem; min-width:0; }
+  .brand-mark{
+    width:44px; height:44px; border-radius:11px;
+    background:var(--paper-2);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 8px 20px -8px rgba(0,0,0,0.5), 0 0 0 1px rgba(184,134,59,0.4);
+    overflow:hidden; flex-shrink:0;
+  }
+  .brand-mark img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .brand .eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:clamp(0.58rem, 2vw, 0.65rem);
+    letter-spacing:0.24em; text-transform:uppercase; color:var(--gold);
+    white-space:nowrap;
+  }
+  .brand h1{
+    margin:0.2rem 0 0; font-family:'Fraunces',serif;
+    font-size:clamp(1.1rem, 4.5vw, 1.5rem); font-weight:600; letter-spacing:-0.01em; color:#fdfaf2;
+    white-space:nowrap;
+  }
+
+  .month-nav{
+    display:flex; align-items:center; gap:0.4rem;
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14);
+    border-radius:999px; padding:0.3rem; flex-shrink:1; min-width:0;
+  }
+  .month-nav button{
+    background:transparent; border:none; color:rgba(251,248,240,0.7);
+    width:2.1rem; height:2.1rem; min-width:2.1rem; border-radius:999px; cursor:pointer;
+    font-size:1.05rem; display:flex; align-items:center; justify-content:center;
+    transition:background .15s ease, color .15s ease; flex-shrink:0;
+  }
+  .month-nav button:hover{ background:rgba(255,255,255,0.12); color:#fdfaf2; }
+  .month-nav .label{
+    min-width:0; width:clamp(5.5rem, 24vw, 8.5rem); text-align:center; font-size:clamp(0.7rem, 2.6vw, 0.8rem);
+    font-weight:600; color:#fdfaf2; letter-spacing:0.01em;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  #allTime{
+    width:auto !important; padding:0 0.6rem !important; font-size:clamp(0.58rem, 2vw, 0.66rem) !important;
+    font-family:'JetBrains Mono',monospace; letter-spacing:0.09em;
+  }
+  #allTime.active-all{ background:var(--gold); color:var(--ink); }
+
+  #status{
+    max-width:1180px; margin:0 auto; padding:0.9rem 1.5rem 0;
+    font-family:'JetBrains Mono',monospace; font-size:0.68rem;
+    color:var(--text-dim); display:flex; align-items:center; gap:0.4rem;
+  }
+  #status::before{
+    content:""; width:6px; height:6px; border-radius:50%;
+    background:var(--income); box-shadow:0 0 8px var(--income); flex-shrink:0;
+  }
+  #status.error::before{ background:var(--expense); box-shadow:0 0 8px var(--expense); }
+  #status.error{ color:var(--expense); }
+
+  .grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:1.4rem; margin-top:1rem; }
+  .grid > div{ min-width:0; }
+  @media (max-width:900px){ .grid{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--rule); border-radius:var(--radius);
+    box-shadow:var(--shadow-card);
+    overflow:hidden;
+    position:relative;
+  }
+  .card-head{
+    padding:1rem 1.25rem; border-bottom:1px solid var(--rule-soft);
+    font-family:'Fraunces',serif; font-size:0.95rem; font-weight:600; letter-spacing:0.005em; color:var(--ink);
+    display:flex; justify-content:space-between; align-items:center;
+  }
+
+  .stats{ display:grid; grid-template-columns:repeat(3,1fr); }
+  .stats > div{ padding:1.3rem 1.1rem; text-align:left; border-right:1px solid var(--rule-soft); position:relative; }
+  .stats > div:last-child{ border-right:none; }
+  .stats .label{
+    font-family:'JetBrains Mono',monospace; font-size:0.6rem; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:0.5rem;
+  }
+  .stats .value{ font-family:'Fraunces',serif; font-size:1.55rem; font-weight:600; letter-spacing:-0.01em; }
+  .stats .income .value{ color:var(--income); }
+  .stats .expense .value{ color:var(--expense); }
+  .stats .balance .value{ color:var(--ink); }
+  .stats .balance{ background:var(--gold-soft); }
+
+  .cat-bars{ padding:1.1rem 1.25rem 1.3rem; }
+  .cat-row{ margin-bottom:0.85rem; }
+  .cat-row:last-child{ margin-bottom:0; }
+  .cat-row .meta{ display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:0.4rem; color:var(--text); }
+  .cat-row .meta .amt{ color:var(--text-soft); }
+  .cat-row .track{ height:6px; background:var(--rule-soft); border-radius:99px; position:relative; overflow:hidden; }
+  .cat-row .fill{
+    position:absolute; top:0; left:0; height:100%; border-radius:99px;
+    background:var(--gold);
+    transition:width .4s ease;
+  }
+  .cat-empty{ padding:1.2rem 1.25rem; color:var(--text-dim); font-size:0.85rem; }
+
+  form{ padding:1.25rem; }
+  .row{ display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem; }
+  .field{ display:flex; flex-direction:column; min-width:0; }
+  .field.full{ grid-column:1/-1; }
+  label{
+    font-family:'JetBrains Mono',monospace; font-size:0.6rem; text-transform:uppercase;
+    letter-spacing:0.1em; color:var(--text-dim); margin-bottom:0.4rem;
+  }
+  input, select{
+    padding:0.65rem 0.7rem; border-radius:var(--radius-sm);
+    border:1px solid var(--rule); background:var(--paper-2); color:var(--text);
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  input::placeholder{ color:var(--text-dim); }
+  input:focus, select:focus, button:focus-visible{
+    outline:none; border-color:var(--gold);
+    box-shadow:0 0 0 3px rgba(184,134,59,0.22);
+  }
+  select{ appearance:none; -webkit-appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a8471'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 0.75rem center; padding-right:2rem;
+  }
+
+  .type-toggle{
+    display:flex; grid-column:1/-1; margin-bottom:0.75rem;
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius-sm); padding:0.25rem;
+  }
+  .type-toggle button{
+    flex:1; padding:0.55rem; border:none; background:transparent; border-radius:7px;
+    font-size:0.82rem; font-weight:600; cursor:pointer; color:var(--text-soft);
+    transition:background .15s ease, color .15s ease;
+  }
+  .type-toggle button.active[data-type="Income"]{ background:var(--income-soft); color:var(--income); }
+  .type-toggle button.active[data-type="Expense"]{ background:var(--expense-soft); color:var(--expense); }
+
+  .submit-btn{
+    width:100%; padding:0.8rem; border:none; border-radius:var(--radius-sm);
+    background:var(--ink);
+    color:#fdfaf2; font-weight:700; font-size:0.88rem; letter-spacing:0.01em; cursor:pointer;
+    box-shadow:0 10px 22px -10px rgba(22,35,58,0.55);
+    transition:transform .12s ease, box-shadow .12s ease, background .15s ease;
+  }
+  .submit-btn:hover{ transform:translateY(-1px); background:var(--ink-2); box-shadow:0 14px 26px -10px rgba(22,35,58,0.6); }
+  .submit-btn.editing{ background:var(--gold-2); box-shadow:0 10px 22px -10px rgba(138,100,39,0.55); }
+  .cancel-edit{
+    width:100%; margin-top:0.6rem; padding:0.6rem; background:transparent;
+    border:1px solid var(--rule); border-radius:var(--radius-sm); color:var(--text-soft); cursor:pointer;
+    font-size:0.78rem; display:none;
+  }
+  .cancel-edit:hover{ border-color:var(--text-dim); color:var(--text); }
+  .cancel-edit.show{ display:block; }
+
+  .table-wrap{ overflow-x:auto; border-left:3px solid var(--expense-soft); }
+  table{ width:100%; border-collapse:collapse; }
+  thead th{
+    text-align:left; font-family:'JetBrains Mono',monospace; font-size:0.62rem;
+    letter-spacing:0.1em; text-transform:uppercase; color:var(--text-dim);
+    border-bottom:1px solid var(--rule); padding:0.7rem 0.8rem; white-space:nowrap;
+    background:var(--paper-2);
+  }
+  tbody td{ padding:0.75rem 0.8rem; border-bottom:1px solid var(--rule-soft); font-size:0.86rem; vertical-align:top; color:var(--text); }
+  tbody tr{ transition:background .12s ease; }
+  tbody tr:hover{ background:rgba(184,134,59,0.06); }
+  tbody tr:last-child td{ border-bottom:none; }
+  td.amount{ font-family:'JetBrains Mono',monospace; text-align:right; white-space:nowrap; font-weight:600; }
+  td.amount.Income{ color:var(--income); }
+  td.amount.Expense{ color:var(--expense); }
+  td.desc-cat .cat{
+    display:inline-block; font-family:'JetBrains Mono',monospace; font-size:0.6rem;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--text-soft);
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:5px;
+    padding:0.15rem 0.4rem; margin-bottom:0.3rem;
+  }
+  td.desc-cat > br + * , td.desc-cat{ color:var(--text-soft); }
+  .row-actions{ white-space:nowrap; }
+  .row-actions button{
+    background:none; border:none; color:var(--text-dim); cursor:pointer;
+    font-family:'JetBrains Mono',monospace; font-size:0.68rem; margin-right:0.7rem;
+  }
+  .row-actions button:hover{ color:var(--text); }
+  .row-actions .del:hover{ color:var(--expense); }
+  .empty-row td{ text-align:center; color:var(--text-dim); padding:2.4rem 0; font-size:0.85rem; }
+
+  .savings-total{ font-size:0.78rem; color:var(--income); font-weight:600; }
+  .goals-wrap{ padding:1.1rem 1.25rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)); gap:0.9rem; }
+  .goal-card{
+    background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius-sm);
+    padding:1rem 1.05rem;
+  }
+  .goal-card .goal-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.7rem; }
+  .goal-card .goal-name{ font-family:'Fraunces',serif; font-weight:600; font-size:1rem; }
+  .goal-card .goal-date{ font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-dim); margin-top:0.2rem; }
+  .goal-card .del-goal{ background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:0.9rem; line-height:1; }
+  .goal-card .del-goal:hover{ color:var(--expense); }
+  .goal-card .goal-amounts{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem; }
+  .goal-card .goal-saved{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.15rem; color:var(--text); }
+  .goal-card .goal-target{ font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); }
+  .goal-card .track{ height:8px; background:var(--rule-soft); border-radius:99px; overflow:hidden; margin-bottom:0.5rem; }
+  .goal-card .fill{
+    height:100%; border-radius:99px;
+    background:var(--income);
+    transition:width .4s ease;
+  }
+  .goal-card .goal-pct{ font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:var(--text-soft); text-align:right; }
+  .goal-card .goal-pct.complete{ color:var(--income); }
+
+  .savings-forms{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; padding:0.2rem 1.25rem 1.25rem; }
+  @media (max-width:700px){ .savings-forms{ grid-template-columns:1fr; } }
+  .mini-form{ background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius-sm); padding:1rem; }
+  .mini-form-title{
+    font-family:'JetBrains Mono',monospace; font-size:0.68rem; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--text-soft); margin-bottom:0.8rem;
+  }
+  .submit-btn.secondary{
+    background:var(--paper-2); color:var(--ink); border:1px solid var(--rule);
+    box-shadow:none; font-weight:600;
+  }
+  .submit-btn.secondary:hover{ border-color:var(--gold); box-shadow:0 0 0 3px rgba(184,134,59,0.14); transform:none; background:var(--paper-2); }
+
+  footer{
+    text-align:center; padding:2.5rem 1rem 1rem; font-family:'JetBrains Mono',monospace;
+    font-size:0.65rem; color:var(--text-dim); letter-spacing:0.02em;
+  }
+
+  @media (max-width:600px){
+    .app{ padding-bottom:2rem; }
+    #status{ padding-top:0.9rem; }
+    .month-nav{ width:100%; justify-content:space-between; }
+    .stats{ grid-template-columns:1fr; }
+    .stats > div{ border-right:none; border-bottom:1px solid var(--rule-soft); }
+    .stats > div:last-child{ border-bottom:none; }
+    .row{ grid-template-columns:1fr; }
+    table{ font-size:0.8rem; }
+    .card-head{ padding:0.9rem 1rem; }
+    form{ padding:1rem; }
+    .cat-bars{ padding:1rem; }
+    .goals-wrap{ padding:1rem; }
+    .savings-forms{ padding:0.2rem 1rem 1rem; }
+  }
+
+  @media (max-width:420px){
+    .brand{ gap:0.6rem; }
+    .brand-mark{ width:38px; height:38px; }
+    thead th, tbody td{ padding:0.55rem 0.5rem; }
+    .stats > div{ padding:1.1rem 1rem; }
+  }
+
+  @media (max-width:360px){
+    .month-nav .label{ display:none; }
+    #allTime{ margin-left:auto; }
+  }
+
+  /* Landscape phones: reclaim vertical space from the sticky-feeling top bar */
+  @media (max-height:420px) and (orientation:landscape){
+    header{ padding-top:0.6rem; padding-bottom:0.6rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <header>
+    <div class="brand">
+      <div class="brand-mark"><img src="data:image/png;base64,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" alt="Ledger logo" width="44" height="44"></div>
+      <div>
+        <div class="eyebrow">Personal Finance</div>
+        <h1>Ledger Dashboard</h1>
+      </div>
+    </div>
+    <div class="month-nav">
+      <button id="prevMonth" aria-label="Previous month">‹</button>
+      <span class="label mono" id="monthLabel">—</span>
+      <button id="nextMonth" aria-label="Next month">›</button>
+      <button id="allTime" title="Show all entries">ALL</button>
+    </div>
+  </header>
+</div>
+<div id="status">Not connected yet — see setup instructions.</div>
+
+<div class="app">
+  <div class="grid">
+    <div>
+      <div class="card" style="margin-top:1.4rem;">
+        <div class="card-head">Summary</div>
+        <div class="stats">
+          <div class="income"><span class="label">Income</span><span class="value mono" id="totalIncome">₱0.00</span></div>
+          <div class="expense"><span class="label">Expenses</span><span class="value mono" id="totalExpense">₱0.00</span></div>
+          <div class="balance"><span class="label">Balance</span><span class="value mono" id="totalBalance">₱0.00</span></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1.4rem;">
+        <div class="card-head">Spending by category</div>
+        <div class="cat-bars" id="catBars"><div class="cat-empty">No expenses for this period.</div></div>
+      </div>
+
+      <div class="card" style="margin-top:1.4rem;">
+        <div class="card-head"><span id="tableTitle">Entries</span></div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Date</th><th>Category / Note</th><th style="text-align:right;">Amount</th><th></th></tr>
+            </thead>
+            <tbody id="txBody">
+              <tr class="empty-row"><td colspan="4">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="margin-top:1.4rem;">
+        <div class="card-head"><span id="formTitle">New Entry</span></div>
+        <form id="entryForm">
+          <div class="row">
+            <div class="type-toggle" id="typeToggle">
+              <button type="button" data-type="Income" class="active">+ Income</button>
+              <button type="button" data-type="Expense">− Expense</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="date">Date</label>
+              <input type="date" id="date" required>
+            </div>
+            <div class="field">
+              <label for="amount">Amount</label>
+              <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="row">
+            <div class="field">
+              <label for="category">Category</label>
+              <select id="category">
+                <option>Salary</option><option>Freelance</option><option>Food</option>
+                <option>Transport</option><option>Bills</option><option>Rent</option>
+                <option>Shopping</option><option>Health</option><option>Savings</option><option>Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="description">Description</label>
+              <input type="text" id="description" placeholder="e.g. Jeepney fare">
+            </div>
+          </div>
+          <button type="submit" class="submit-btn" id="submitBtn">Add to Ledger</button>
+          <button type="button" class="cancel-edit" id="cancelEdit">Cancel edit</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="card savings-card" style="margin-top:1.4rem;">
+    <div class="card-head">
+      <span>Savings Goals</span>
+      <span class="mono savings-total" id="savingsTotal">₱0.00 saved</span>
+    </div>
+
+    <div class="goals-wrap" id="goalsWrap">
+      <div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>
+    </div>
+
+    <div class="savings-forms">
+      <form id="goalForm" class="mini-form">
+        <div class="mini-form-title">New Goal</div>
+        <div class="row">
+          <div class="field">
+            <label for="goalName">Goal name</label>
+            <input type="text" id="goalName" placeholder="e.g. Wedding" required>
+          </div>
+          <div class="field">
+            <label for="goalTarget">Target amount</label>
+            <input type="number" id="goalTarget" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field full">
+            <label for="goalDate">Target date (optional)</label>
+            <input type="date" id="goalDate">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn secondary">Create Goal</button>
+      </form>
+
+      <form id="contribForm" class="mini-form">
+        <div class="mini-form-title">Add Money / Withdraw</div>
+        <div class="row">
+          <div class="field full">
+            <label for="contribGoal">Goal</label>
+            <select id="contribGoal" required></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="type-toggle" id="contribToggle">
+            <button type="button" data-type="Deposit" class="active">+ Add</button>
+            <button type="button" data-type="Withdraw">− Withdraw</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="contribAmount">Amount</label>
+            <input type="number" id="contribAmount" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="field">
+            <label for="contribNote">Note (optional)</label>
+            <input type="text" id="contribNote" placeholder="e.g. Bonus">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn secondary">Save</button>
+      </form>
+    </div>
+  </div>
+
+  <footer>Backed by Google Sheets · every change here saves straight to your sheet</footer>
+</div>
+
+<script>
+  // ------------------------------------------------------------------
+  // PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL HERE (Deploy > New deployment)
+  // ------------------------------------------------------------------
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyHgjIXzjfGtajVzvjBT62k762OrhD-bFml95lxB_0pXrso50DEAo5H2c9MbNSt1OSs/exec";
+  const CURRENCY = "₱"; // change to "$", "€", etc.
+
+  let selectedType = "Income";
+  let transactions = [];
+  let editingId = null;
+  let viewMonth = new Date();
+  let showAll = false;
+
+  let goals = [];
+  let contributions = [];
+  let selectedContribType = "Deposit";
+
+  const statusEl = document.getElementById('status');
+  const typeToggle = document.getElementById('typeToggle');
+  const form = document.getElementById('entryForm');
+  const txBody = document.getElementById('txBody');
+  const submitBtn = document.getElementById('submitBtn');
+  const cancelEditBtn = document.getElementById('cancelEdit');
+  const formTitle = document.getElementById('formTitle');
+  const monthLabel = document.getElementById('monthLabel');
+  const tableTitle = document.getElementById('tableTitle');
+  const allTimeBtn = document.getElementById('allTime');
+
+  const goalForm = document.getElementById('goalForm');
+  const contribForm = document.getElementById('contribForm');
+  const contribToggle = document.getElementById('contribToggle');
+  const goalsWrap = document.getElementById('goalsWrap');
+  const contribGoalSelect = document.getElementById('contribGoal');
+  const savingsTotalEl = document.getElementById('savingsTotal');
+
+  contribToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    selectedContribType = btn.dataset.type;
+    [...contribToggle.children].forEach(b => b.classList.toggle('active', b === btn));
+  });
+
+  document.getElementById('date').valueAsDate = new Date();
+
+  typeToggle.addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    selectedType = btn.dataset.type;
+    [...typeToggle.children].forEach(b => b.classList.toggle('active', b === btn));
+  });
+
+  document.getElementById('prevMonth').addEventListener('click', () => {
+    showAll = false;
+    viewMonth.setMonth(viewMonth.getMonth() - 1);
+    render();
+  });
+  document.getElementById('nextMonth').addEventListener('click', () => {
+    showAll = false;
+    viewMonth.setMonth(viewMonth.getMonth() + 1);
+    render();
+  });
+  allTimeBtn.addEventListener('click', () => {
+    showAll = true;
+    render();
+  });
+
+  cancelEditBtn.addEventListener('click', resetForm);
+
+  function resetForm(){
+    editingId = null;
+    form.reset();
+    document.getElementById('date').valueAsDate = new Date();
+    selectedType = "Income";
+    [...typeToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === "Income"));
+    submitBtn.textContent = "Add to Ledger";
+    submitBtn.classList.remove('editing');
+    cancelEditBtn.classList.remove('show');
+    formTitle.textContent = "New Entry";
+  }
+
+  function fmt(n){
+    const sign = n < 0 ? "-" : "";
+    return sign + CURRENCY + Math.abs(n).toFixed(2);
+  }
+
+  function monthKey(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0'); }
+
+  function currentPeriodTx(){
+    if (showAll) return transactions;
+    const key = monthKey(viewMonth);
+    return transactions.filter(t => t.date && t.date.slice(0,7) === key);
+  }
+
+  function render(){
+    allTimeBtn.classList.toggle('active-all', showAll);
+    monthLabel.textContent = showAll ? "All time" :
+      viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    tableTitle.textContent = showAll ? "All entries" : "Entries this month";
+
+    const periodTx = currentPeriodTx();
+    let income = 0, expense = 0;
+    const catTotals = {};
+
+    txBody.innerHTML = "";
+    if (periodTx.length === 0){
+      txBody.innerHTML = `<tr class="empty-row"><td colspan="4">No entries for this period.</td></tr>`;
+    } else {
+      const sorted = [...periodTx].sort((a,b) => (a.date < b.date ? 1 : -1));
+      for (const t of sorted){
+        const amt = Number(t.amount);
+        if (t.type === "Income") income += amt; else { expense += amt; catTotals[t.category] = (catTotals[t.category]||0) + amt; }
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="mono">${t.date}</td>
+          <td class="desc-cat"><span class="cat">${t.category}</span><br>${t.description || ""}</td>
+          <td class="amount ${t.type}">${t.type === "Expense" ? "-" : "+"}${fmt(amt)}</td>
+          <td class="row-actions">
+            <button class="edit" data-id="${t.id}">edit</button><button class="del" data-id="${t.id}">remove</button>
+          </td>`;
+        txBody.appendChild(tr);
+      }
+    }
+
+    document.getElementById('totalIncome').textContent = fmt(income);
+    document.getElementById('totalExpense').textContent = fmt(expense);
+    document.getElementById('totalBalance').textContent = fmt(income - expense);
+
+    renderCatBars(catTotals, expense);
+  }
+
+  function renderCatBars(catTotals, expenseTotal){
+    const el = document.getElementById('catBars');
+    const entries = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
+    if (entries.length === 0){
+      el.innerHTML = `<div class="cat-empty">No expenses for this period.</div>`;
+      return;
+    }
+    el.innerHTML = entries.map(([cat, amt]) => {
+      const pct = expenseTotal ? Math.round((amt/expenseTotal)*100) : 0;
+      return `<div class="cat-row">
+        <div class="meta"><span>${cat}</span><span class="mono amt">${fmt(amt)} · ${pct}%</span></div>
+        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("");
+  }
+
+  txBody.addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.del');
+    const editBtn = e.target.closest('.edit');
+
+    if (delBtn){
+      const id = delBtn.dataset.id;
+      transactions = transactions.filter(t => t.id !== id);
+      render();
+      await callScript('POST', { action: 'delete', id });
+      return;
+    }
+
+    if (editBtn){
+      const id = editBtn.dataset.id;
+      const t = transactions.find(t => t.id === id);
+      if (!t) return;
+      editingId = id;
+      document.getElementById('date').value = t.date;
+      document.getElementById('amount').value = t.amount;
+      document.getElementById('category').value = t.category;
+      document.getElementById('description').value = t.description || "";
+      selectedType = t.type;
+      [...typeToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === t.type));
+      submitBtn.textContent = "Save changes";
+      submitBtn.classList.add('editing');
+      cancelEditBtn.classList.add('show');
+      formTitle.textContent = "Edit Entry";
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      date: document.getElementById('date').value,
+      type: selectedType,
+      category: document.getElementById('category').value,
+      description: document.getElementById('description').value,
+      amount: document.getElementById('amount').value
+    };
+
+    if (editingId){
+      const t = transactions.find(t => t.id === editingId);
+      if (t) Object.assign(t, payload);
+      render();
+      await callScript('POST', { action: 'update', id: editingId, ...payload });
+      resetForm();
+      return;
+    }
+
+    const tempId = 'temp-' + Date.now();
+    transactions.push({ ...payload, id: tempId });
+    render();
+    resetForm();
+
+    const res = await callScript('POST', { action: 'add', ...payload });
+    if (res && res.success){
+      const t = transactions.find(t => t.id === tempId);
+      if (t) t.id = res.id;
+    }
+  });
+
+  async function callScript(method, payload){
+    if (!SCRIPT_URL || SCRIPT_URL.includes("PASTE_YOUR")){
+      statusEl.textContent = "Not connected — paste your Apps Script Web App URL into SCRIPT_URL in the HTML file.";
+      statusEl.classList.add('error');
+      return null;
+    }
+    try{
+      let url = SCRIPT_URL;
+      const opts = { method };
+      if (method === 'POST'){
+        opts.body = JSON.stringify(payload);
+        opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+      } else {
+        url += '?' + new URLSearchParams(payload || {}).toString();
+      }
+      const resp = await fetch(url, opts);
+      const data = await resp.json();
+      if (!data.success) throw new Error(data.error || 'Unknown error');
+      statusEl.textContent = "Connected — synced with Google Sheet.";
+      statusEl.classList.remove('error');
+      return data;
+    } catch(err){
+      statusEl.textContent = "Sync error: " + err.message;
+      statusEl.classList.add('error');
+      return null;
+    }
+  }
+
+  async function loadAll(){
+    const data = await callScript('GET', { action: 'list' });
+    if (data && data.transactions) transactions = data.transactions;
+    render();
+
+    const sav = await callScript('GET', { action: 'savings' });
+    if (sav) {
+      goals = sav.goals || [];
+      contributions = sav.contributions || [];
+    }
+    renderSavings();
+  }
+
+  function goalSaved(goalId){
+    return contributions
+      .filter(c => c.goalId === goalId)
+      .reduce((sum, c) => sum + (c.type === 'Withdraw' ? -c.amount : c.amount), 0);
+  }
+
+  function renderSavings(){
+    // keep the contribution-form goal dropdown in sync
+    const prevSelected = contribGoalSelect.value;
+    contribGoalSelect.innerHTML = goals.map(g => `<option value="${g.id}">${g.name}</option>`).join("");
+    if (goals.some(g => g.id === prevSelected)) contribGoalSelect.value = prevSelected;
+
+    if (goals.length === 0){
+      goalsWrap.innerHTML = `<div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>`;
+      savingsTotalEl.textContent = fmt(0) + " saved";
+      return;
+    }
+
+    let grandTotal = 0;
+    goalsWrap.innerHTML = goals.map(g => {
+      const saved = goalSaved(g.id);
+      grandTotal += saved;
+      const pct = g.targetAmount ? Math.min(100, Math.round((saved / g.targetAmount) * 100)) : 0;
+      const dateLabel = g.targetDate ? `Target: ${g.targetDate}` : "No target date";
+      return `
+        <div class="goal-card">
+          <div class="goal-head">
+            <div>
+              <div class="goal-name">${g.name}</div>
+              <div class="goal-date">${dateLabel}</div>
+            </div>
+            <button class="del-goal" data-id="${g.id}" title="Delete goal">✕</button>
+          </div>
+          <div class="goal-amounts">
+            <span class="goal-saved mono">${fmt(saved)}</span>
+            <span class="goal-target mono">of ${fmt(g.targetAmount)}</span>
+          </div>
+          <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+          <div class="goal-pct ${pct >= 100 ? 'complete' : ''}">${pct}% funded</div>
+        </div>`;
+    }).join("");
+
+    savingsTotalEl.textContent = fmt(grandTotal) + " saved";
+  }
+
+  goalsWrap.addEventListener('click', async (e) => {
+    const delBtn = e.target.closest('.del-goal');
+    if (!delBtn) return;
+    const id = delBtn.dataset.id;
+    goals = goals.filter(g => g.id !== id);
+    contributions = contributions.filter(c => c.goalId !== id);
+    renderSavings();
+    await callScript('POST', { action: 'deleteGoal', id });
+  });
+
+  goalForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const payload = {
+      action: 'addGoal',
+      name: document.getElementById('goalName').value,
+      targetAmount: document.getElementById('goalTarget').value,
+      targetDate: document.getElementById('goalDate').value
+    };
+    const tempId = 'temp-' + Date.now();
+    goals.push({ id: tempId, name: payload.name, targetAmount: Number(payload.targetAmount), targetDate: payload.targetDate });
+    renderSavings();
+    goalForm.reset();
+
+    const res = await callScript('POST', payload);
+    if (res && res.success){
+      const g = goals.find(g => g.id === tempId);
+      if (g) g.id = res.id;
+      renderSavings();
+    }
+  });
+
+  contribForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const goalId = contribGoalSelect.value;
+    if (!goalId) return;
+    const payload = {
+      action: 'addContribution',
+      goalId: goalId,
+      type: selectedContribType,
+      amount: document.getElementById('contribAmount').value,
+      note: document.getElementById('contribNote').value
+    };
+    const tempId = 'temp-' + Date.now();
+    contributions.push({ id: tempId, goalId, type: payload.type, amount: Number(payload.amount), note: payload.note });
+    renderSavings();
+    contribForm.reset();
+    selectedContribType = "Deposit";
+    [...contribToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === "Deposit"));
+
+    const res = await callScript('POST', payload);
+    if (res && res.success){
+      const c = contributions.find(c => c.id === tempId);
+      if (c) c.id = res.id;
+    }
+  });
+
+  loadAll();
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
