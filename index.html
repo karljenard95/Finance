@@ -185,29 +185,73 @@
     display:flex; justify-content:space-between; align-items:center;
   }
 
-  .stats{ display:grid; grid-template-columns:repeat(4,1fr); }
-  .stats .saved .value{ color:var(--gold-2); }
-  .stats > div{ padding:1.3rem 1.1rem; text-align:left; border-right:1px solid var(--rule-soft); position:relative; min-width:0; }
-  .stats > div:last-child{ border-right:none; }
-  .stats .label{
-    font-family:'JetBrains Mono',monospace; font-size:0.6rem; letter-spacing:0.14em;
-    text-transform:uppercase; color:var(--text-dim); display:block; margin-bottom:0.5rem;
+  /* ---- Overall Summary : redesigned stat grid ---- */
+  .stats{
+    display:grid; grid-template-columns:repeat(4,1fr);
+    gap:0.9rem; padding:1.25rem;
   }
-  .stats .value{ font-family:'Fraunces',serif; font-size:clamp(1.05rem, 4.2vw, 1.55rem); font-weight:600; letter-spacing:-0.01em; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .stats > div{
+    background:var(--paper-2); border:1px solid var(--rule-soft); border-radius:var(--radius-sm);
+    padding:1.15rem 1.2rem; text-align:left;
+    position:relative; min-width:0; display:flex; flex-direction:column; gap:0.7rem;
+  }
+  .stats > div::before{
+    content:""; position:absolute; left:0; top:0.9rem; bottom:0.9rem; width:3px;
+    background:var(--rule); border-radius:0 3px 3px 0;
+  }
+  .stats .income::before{ background:var(--income); }
+  .stats .expense::before{ background:var(--expense); }
+  .stats .balance::before{ background:var(--ink); }
+  .stats .saved::before{ background:var(--gold); }
+  .stats .icon{
+    width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    font-size:0.85rem; flex-shrink:0;
+  }
+  .stats .income .icon{ background:var(--income-soft); color:var(--income); }
+  .stats .expense .icon{ background:var(--expense-soft); color:var(--expense); }
+  .stats .balance .icon{ background:rgba(22,35,58,0.08); color:var(--ink); }
+  .stats .saved .icon{ background:var(--gold-soft); color:var(--gold-2); }
+  .stats .label{
+    font-family:'JetBrains Mono',monospace; font-size:0.62rem; letter-spacing:0.13em;
+    text-transform:uppercase; color:var(--text-dim); display:block;
+  }
+  .stats .value{
+    font-family:'Fraunces',serif; font-size:clamp(1.2rem, 2vw, 1.6rem); font-weight:600;
+    letter-spacing:-0.01em; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .stats .saved .value{ color:var(--gold-2); }
   .stats .income .value{ color:var(--income); }
   .stats .expense .value{ color:var(--expense); }
   .stats .balance .value{ color:var(--ink); }
-  .stats .balance{ background:var(--gold-soft); }
+  .stats .balance{ background:var(--gold-soft); border-color:rgba(184,134,59,0.3); }
+
+  @media (max-width:900px){
+    .stats{ grid-template-columns:1fr 1fr; }
+  }
+  @media (max-width:640px){
+    .stats{ grid-template-columns:1fr; padding:1rem; gap:0.65rem; }
+    .stats > div{
+      display:grid; grid-template-columns:auto 1fr auto; align-items:center;
+      column-gap:0.75rem; padding:0.85rem 1.1rem;
+    }
+    .stats > div::before{ top:0.55rem; bottom:0.55rem; }
+    .stats .label{ grid-column:2; }
+    .stats .value{ grid-column:3; font-size:1.15rem; }
+  }
 
   .saved-breakdown{
-    display:flex; flex-wrap:wrap; gap:0.5rem 1rem;
-    padding:0 1.1rem 1.1rem; margin-top:-0.2rem;
+    display:flex; gap:0.6rem;
+    padding:0.9rem 1.25rem 1.25rem; margin-top:0;
+    border-top:1px solid var(--rule-soft);
+    overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none;
   }
+  .saved-breakdown::-webkit-scrollbar{ display:none; }
   .saved-breakdown .item{
-    display:flex; align-items:baseline; gap:0.4rem;
+    display:flex; align-items:baseline; gap:0.4rem; flex-shrink:0;
     font-size:0.78rem; color:var(--text-soft);
     background:var(--paper-2); border:1px solid var(--rule-soft);
     border-radius:999px; padding:0.3rem 0.75rem 0.3rem 0.65rem;
+    white-space:nowrap;
   }
   .saved-breakdown .item .dot{
     width:6px; height:6px; border-radius:50%; background:var(--gold); flex-shrink:0;
@@ -345,28 +389,80 @@
   .row-actions .del:hover{ color:var(--expense); }
   .empty-row td{ text-align:center; color:var(--text-dim); padding:2.4rem 0; font-size:0.85rem; }
 
-  .savings-total{ font-size:0.78rem; color:var(--income); font-weight:600; }
-  .goals-wrap{ padding:1.1rem 1.25rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(240px,100%),1fr)); gap:0.9rem; }
-  .goal-card{
-    background:var(--paper-2); border:1px solid var(--rule); border-radius:var(--radius-sm);
-    padding:1rem 1.05rem;
+  /* ---- Savings Goals : elevated, standalone section ---- */
+  .savings-section{ margin-top:2.4rem; }
+  .savings-section-label{
+    display:flex; align-items:center; gap:0.7rem; margin-bottom:0.9rem;
   }
-  .goal-card .goal-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.7rem; }
-  .goal-card .goal-name{ font-family:'Fraunces',serif; font-weight:600; font-size:1rem; }
-  .goal-card .goal-date{ font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-dim); margin-top:0.2rem; }
-  .goal-card .del-goal{ background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:0.9rem; line-height:1; }
-  .goal-card .del-goal:hover{ color:var(--expense); }
-  .goal-card .goal-amounts{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.5rem; }
-  .goal-card .goal-saved{ font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.15rem; color:var(--text); }
+  .savings-section-label .rule{ flex:1; height:1px; background:var(--rule); }
+  .savings-section-label span{
+    font-family:'JetBrains Mono',monospace; font-size:0.64rem; letter-spacing:0.22em;
+    text-transform:uppercase; color:var(--gold-2); white-space:nowrap;
+  }
+
+  .savings-card{
+    border:1px solid var(--rule);
+    box-shadow:0 1px 0 rgba(255,255,255,0.7) inset, 0 22px 44px -26px rgba(22,35,58,0.4);
+  }
+  .savings-card .card-head{
+    background:linear-gradient(180deg, var(--ink), var(--ink-2));
+    border-bottom:3px solid var(--gold);
+    padding:1.15rem 1.35rem;
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:0.6rem;
+  }
+  .savings-card .card-head .title-group{ display:flex; align-items:baseline; gap:0.6rem; }
+  .savings-card .card-head span:first-child{
+    font-family:'Fraunces',serif; font-size:1.1rem; font-weight:600; color:#fdfaf2;
+  }
+  .savings-card .card-head .subtitle{
+    font-family:'JetBrains Mono',monospace; font-size:0.6rem; letter-spacing:0.1em;
+    text-transform:uppercase; color:rgba(251,248,240,0.55);
+  }
+  .savings-card .head-total{
+    font-family:'JetBrains Mono',monospace; font-size:0.95rem; font-weight:700; color:var(--gold);
+    background:rgba(184,134,59,0.14); border:1px solid rgba(184,134,59,0.35);
+    padding:0.35rem 0.8rem; border-radius:999px;
+  }
+
+  .goals-wrap{ padding:1.35rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(270px,100%),1fr)); gap:1.1rem; }
+  .goal-card{
+    background:var(--card); border:1px solid var(--rule); border-radius:12px;
+    padding:1.15rem 1.2rem 1.1rem; position:relative; overflow:hidden;
+    box-shadow:0 10px 24px -20px rgba(22,35,58,0.4);
+  }
+  .goal-card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:4px;
+    background:linear-gradient(90deg, var(--gold), var(--gold-2));
+  }
+  .goal-card.complete::before{ background:linear-gradient(90deg, var(--income), #2c8a73); }
+  .goal-card .goal-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.85rem; margin-top:0.15rem; }
+  .goal-card .goal-name{ font-family:'Fraunces',serif; font-weight:600; font-size:1.08rem; color:var(--ink); }
+  .goal-card .goal-date{
+    font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-dim);
+    margin-top:0.3rem; letter-spacing:0.03em;
+  }
+  .goal-card .del-goal{
+    background:var(--paper-2); border:1px solid var(--rule-soft); width:24px; height:24px; border-radius:50%;
+    color:var(--text-dim); cursor:pointer; font-size:0.75rem; line-height:1; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; transition:all .15s ease;
+  }
+  .goal-card .del-goal:hover{ color:#fff; background:var(--expense); border-color:var(--expense); }
+  .goal-card .goal-amounts{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.6rem; }
+  .goal-card .goal-saved{ font-family:'Fraunces',serif; font-weight:700; font-size:1.4rem; color:var(--ink); }
   .goal-card .goal-target{ font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); }
-  .goal-card .track{ height:8px; background:var(--rule-soft); border-radius:99px; overflow:hidden; margin-bottom:0.5rem; }
+  .goal-card .track{ height:9px; background:var(--rule-soft); border-radius:99px; overflow:hidden; margin-bottom:0.5rem; }
   .goal-card .fill{
     height:100%; border-radius:99px;
-    background:var(--income);
+    background:linear-gradient(90deg, var(--gold-2), var(--gold));
     transition:width .4s ease;
   }
-  .goal-card .goal-pct{ font-family:'JetBrains Mono',monospace; font-size:0.68rem; color:var(--text-soft); text-align:right; }
+  .goal-card.complete .fill{ background:linear-gradient(90deg, #2c8a73, var(--income)); }
+  .goal-card .goal-pct{
+    font-family:'JetBrains Mono',monospace; font-size:0.66rem; font-weight:600; color:var(--text-soft);
+    text-align:right; letter-spacing:0.03em;
+  }
   .goal-card .goal-pct.complete{ color:var(--income); }
+  .goal-card .goal-pct.complete::after{ content:" ✓"; }
 
   .contrib-list{ margin-top:0.85rem; border-top:1px dashed var(--rule); padding-top:0.6rem; }
   .contrib-list .contrib-row{
@@ -412,10 +508,6 @@
     .app{ padding-bottom:2rem; }
     #status{ padding-top:0.9rem; }
     .month-nav{ width:100%; justify-content:space-between; }
-    .stats{ grid-template-columns:1fr 1fr; }
-    .stats > div{ border-right:none; border-bottom:1px solid var(--rule-soft); }
-    .stats > div:nth-child(odd){ border-right:1px solid var(--rule-soft); }
-    .stats > div:nth-last-child(-n+2){ border-bottom:none; }
     .row{ grid-template-columns:1fr; }
     table{ font-size:0.8rem; }
     .card-head{ padding:0.9rem 1rem; }
@@ -429,8 +521,6 @@
     .brand{ gap:0.6rem; }
     .brand-mark{ width:38px; height:38px; }
     thead th, tbody td{ padding:0.55rem 0.5rem; }
-    .stats > div{ padding:0.9rem 0.7rem; }
-    .stats .label{ font-size:0.55rem; margin-bottom:0.35rem; }
   }
 
   @media (max-width:360px){
@@ -495,10 +585,10 @@
     <div class="card card-overall" style="margin-top:1.4rem;">
       <div class="card-head">Overall Summary <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:500;letter-spacing:0.08em;color:var(--text-dim);text-transform:uppercase;">All transactions + savings</span></div>
       <div class="stats">
-        <div class="income"><span class="label">Income</span><span class="value mono" id="totalIncome">₱0.00</span></div>
-        <div class="expense"><span class="label">Expenses</span><span class="value mono" id="totalExpense">₱0.00</span></div>
-        <div class="balance"><span class="label">Balance</span><span class="value mono" id="totalBalance">₱0.00</span></div>
-        <div class="saved"><span class="label">Total Saved</span><span class="value mono" id="totalSaved">₱0.00</span></div>
+        <div class="income"><span class="icon">↑</span><span class="label">Income</span><span class="value mono" id="totalIncome">₱0.00</span></div>
+        <div class="expense"><span class="icon">↓</span><span class="label">Expenses</span><span class="value mono" id="totalExpense">₱0.00</span></div>
+        <div class="balance"><span class="icon">=</span><span class="label">Balance</span><span class="value mono" id="totalBalance">₱0.00</span></div>
+        <div class="saved"><span class="icon">◆</span><span class="label">Total Saved</span><span class="value mono" id="totalSaved">₱0.00</span></div>
       </div>
       <div class="saved-breakdown" id="savedBreakdown"></div>
     </div>
@@ -561,14 +651,20 @@
     </div>
   </div>
 
-  <div class="card savings-card" style="margin-top:1.4rem;">
-    <div class="card-head">
-      <span>Savings Goals</span>
-    </div>
+  <div class="savings-section">
+    <div class="savings-section-label"><span>Savings</span><div class="rule"></div></div>
+    <div class="card savings-card">
+      <div class="card-head">
+        <div class="title-group">
+          <span>Savings Goals</span>
+          <span class="subtitle" id="goalsCount">0 goals</span>
+        </div>
+        <span class="head-total mono" id="totalSavedHead">₱0.00</span>
+      </div>
 
-    <div class="goals-wrap" id="goalsWrap">
-      <div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>
-    </div>
+      <div class="goals-wrap" id="goalsWrap">
+        <div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>
+      </div>
 
     <div class="savings-forms">
       <form id="goalForm" class="mini-form">
@@ -619,6 +715,7 @@
         <button type="submit" class="submit-btn secondary" id="contribSubmitBtn">Save</button>
         <button type="button" class="cancel-edit" id="cancelContribEdit">Cancel edit</button>
       </form>
+      </div>
     </div>
   </div>
 
@@ -666,6 +763,8 @@
   const cancelContribEditBtn = document.getElementById('cancelContribEdit');
   const totalSavedEl = document.getElementById('totalSaved');
   const savedBreakdownEl = document.getElementById('savedBreakdown');
+  const totalSavedHeadEl = document.getElementById('totalSavedHead');
+  const goalsCountEl = document.getElementById('goalsCount');
 
   contribToggle.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
@@ -901,7 +1000,7 @@
     const res = await callScript('POST', { action: 'add', ...payload });
     if (res && res.success){
       const t = transactions.find(t => t.id === tempId);
-      if (t) t.id = res.id;
+      if (t) t.id = String(res.id);
     }
   });
 
@@ -957,9 +1056,14 @@
     // two round-trips — halves network latency on load and on every refresh.
     const data = await callScript('GET', { action: 'bootstrap' });
     if (data){
-      transactions = data.transactions || [];
-      goals = data.goals || [];
-      contributions = data.contributions || [];
+      // IDs coming back from Google Sheets can be numbers while every id we
+      // generate client-side (temp-..., dataset.id from the DOM) is a string.
+      // Normalize everything to strings so === comparisons never silently
+      // fail for entries loaded from the sheet (this was breaking edit/
+      // delete for older goals like Wedding/Housing).
+      transactions = (data.transactions || []).map(t => ({ ...t, id: String(t.id) }));
+      goals = (data.goals || []).map(g => ({ ...g, id: String(g.id) }));
+      contributions = (data.contributions || []).map(c => ({ ...c, id: String(c.id), goalId: String(c.goalId) }));
     }
     renderSavings();
     render();
@@ -981,6 +1085,8 @@
       goalsWrap.innerHTML = `<div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>`;
       totalSavedEl.textContent = fmt(0);
       savedBreakdownEl.innerHTML = `<div class="empty">No goals yet</div>`;
+      totalSavedHeadEl.textContent = fmt(0);
+      goalsCountEl.textContent = "0 goals";
       return;
     }
 
@@ -1010,7 +1116,7 @@
             </div>`).join("");
 
       return `
-        <div class="goal-card">
+        <div class="goal-card ${pct >= 100 ? 'complete' : ''}">
           <div class="goal-head">
             <div>
               <div class="goal-name">${g.name}</div>
@@ -1032,6 +1138,8 @@
     }).join("");
 
     totalSavedEl.textContent = fmt(grandTotal);
+    totalSavedHeadEl.textContent = fmt(grandTotal);
+    goalsCountEl.textContent = goals.length === 1 ? "1 goal" : `${goals.length} goals`;
     savedBreakdownEl.innerHTML = breakdownItems
       .map(b => `<div class="item"><span class="dot"></span><span class="name">${b.name}</span><span class="amt">${fmt(b.saved)}</span></div>`)
       .join("");
@@ -1106,7 +1214,7 @@
     const res = await callScript('POST', payload);
     if (res && res.success){
       const g = goals.find(g => g.id === tempId);
-      if (g) g.id = res.id;
+      if (g) g.id = String(res.id);
       renderSavings();
     }
   });
@@ -1150,7 +1258,7 @@
     const res = await callScript('POST', payload);
     if (res && res.success){
       const c = contributions.find(c => c.id === tempId);
-      if (c) c.id = res.id;
+      if (c) c.id = String(res.id);
     }
   });
 
