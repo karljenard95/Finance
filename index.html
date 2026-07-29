@@ -463,6 +463,27 @@
   }
   .goal-card .goal-pct.complete{ color:var(--income); }
   .goal-card .goal-pct.complete::after{ content:" ✓"; }
+  .goal-card.open-ended::before{ background:linear-gradient(90deg, var(--ink-2), var(--ink)); }
+  .goal-card .goal-pct.open{
+    text-align:left; color:var(--text-dim); font-style:italic; margin-bottom:0.2rem;
+  }
+
+  .other-savings-block{
+    margin:0 1.35rem 1.35rem; padding-top:1.1rem; border-top:1px dashed var(--rule);
+  }
+  .other-savings-head{
+    display:flex; align-items:baseline; gap:0.5rem; margin-bottom:0.9rem; padding:0 0.05rem;
+  }
+  .other-savings-head .dot{
+    width:8px; height:8px; border-radius:50%; background:var(--ink); flex-shrink:0; align-self:center;
+  }
+  .other-savings-head span:nth-child(2){
+    font-family:'Fraunces',serif; font-weight:600; font-size:0.92rem; color:var(--ink);
+  }
+  .other-savings-head .sub{
+    font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-dim); letter-spacing:0.02em;
+  }
+  .other-wrap{ padding:0; }
 
   .contrib-list{ margin-top:0.85rem; border-top:1px dashed var(--rule); padding-top:0.6rem; }
   .contrib-list .contrib-row{
@@ -666,17 +687,26 @@
         <div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>
       </div>
 
+      <div class="other-savings-block" id="otherSavingsBlock" style="display:none;">
+        <div class="other-savings-head">
+          <span class="dot"></span>
+          <span>Other Savings</span>
+          <span class="sub">— not tied to a specific goal</span>
+        </div>
+        <div class="goals-wrap other-wrap" id="otherWrap"></div>
+      </div>
+
     <div class="savings-forms">
       <form id="goalForm" class="mini-form">
         <div class="mini-form-title">New Goal</div>
         <div class="row">
           <div class="field">
             <label for="goalName">Goal name</label>
-            <input type="text" id="goalName" placeholder="e.g. Wedding" required>
+            <input type="text" id="goalName" placeholder="e.g. Wedding, Others" required>
           </div>
           <div class="field amount-field">
-            <label for="goalTarget">Target amount (PHP)</label>
-            <input type="number" id="goalTarget" step="0.01" min="0" placeholder="0.00" required>
+            <label for="goalTarget">Target amount (PHP) <span style="text-transform:none;letter-spacing:0;opacity:0.7;">— optional</span></label>
+            <input type="number" id="goalTarget" step="0.01" min="0" placeholder="Leave blank for open-ended">
           </div>
         </div>
         <div class="row">
@@ -758,6 +788,8 @@
   const contribForm = document.getElementById('contribForm');
   const contribToggle = document.getElementById('contribToggle');
   const goalsWrap = document.getElementById('goalsWrap');
+  const otherSavingsBlock = document.getElementById('otherSavingsBlock');
+  const otherWrap = document.getElementById('otherWrap');
   const contribGoalSelect = document.getElementById('contribGoal');
   const contribSubmitBtn = document.getElementById('contribSubmitBtn');
   const cancelContribEditBtn = document.getElementById('cancelContribEdit');
@@ -1083,6 +1115,7 @@
 
     if (goals.length === 0){
       goalsWrap.innerHTML = `<div class="cat-empty">No savings goals yet — add one below (e.g. Wedding, Travel).</div>`;
+      otherSavingsBlock.style.display = 'none';
       totalSavedEl.textContent = fmt(0);
       savedBreakdownEl.innerHTML = `<div class="empty">No goals yet</div>`;
       totalSavedHeadEl.textContent = fmt(0);
@@ -1090,14 +1123,11 @@
       return;
     }
 
-    let grandTotal = 0;
-    const breakdownItems = [];
-    goalsWrap.innerHTML = goals.map(g => {
+    function buildCard(g){
       const saved = goalSaved(g.id);
-      grandTotal += saved;
-      breakdownItems.push({ name: g.name, saved });
-      const pct = g.targetAmount ? Math.min(100, Math.round((saved / g.targetAmount) * 100)) : 0;
-      const dateLabel = g.targetDate ? `Target: ${g.targetDate}` : "No target date";
+      const isOpenEnded = !g.targetAmount;
+      const pct = isOpenEnded ? 0 : Math.min(100, Math.round((saved / g.targetAmount) * 100));
+      const dateLabel = g.targetDate ? `Target: ${g.targetDate}` : (isOpenEnded ? "Open-ended · no target" : "No target date");
 
       const goalContribs = contributions
         .filter(c => c.goalId === g.id)
@@ -1115,8 +1145,13 @@
               </span>
             </div>`).join("");
 
-      return `
-        <div class="goal-card ${pct >= 100 ? 'complete' : ''}">
+      const progressHtml = isOpenEnded
+        ? `<div class="goal-pct open">Personal savings · no fixed target</div>`
+        : `<div class="track"><div class="fill" style="width:${pct}%"></div></div>
+           <div class="goal-pct ${pct >= 100 ? 'complete' : ''}">${pct}% funded</div>`;
+
+      return { saved, isOpenEnded, html: `
+        <div class="goal-card ${!isOpenEnded && pct >= 100 ? 'complete' : ''} ${isOpenEnded ? 'open-ended' : ''}">
           <div class="goal-head">
             <div>
               <div class="goal-name">${g.name}</div>
@@ -1126,16 +1161,39 @@
           </div>
           <div class="goal-amounts">
             <span class="goal-saved mono">${fmt(saved)}</span>
-            <span class="goal-target mono">of ${fmt(g.targetAmount)}</span>
+            ${isOpenEnded ? "" : `<span class="goal-target mono">of ${fmt(g.targetAmount)}</span>`}
           </div>
-          <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-          <div class="goal-pct ${pct >= 100 ? 'complete' : ''}">${pct}% funded</div>
+          ${progressHtml}
           <div class="contrib-list">
             <div class="contrib-list-title">Entries</div>
             ${contribsHtml}
           </div>
-        </div>`;
-    }).join("");
+        </div>` };
+    }
+
+    let grandTotal = 0;
+    const breakdownItems = [];
+    const targetGoals = [];
+    const openGoals = [];
+
+    goals.forEach(g => {
+      const card = buildCard(g);
+      grandTotal += card.saved;
+      breakdownItems.push({ name: g.name, saved: card.saved });
+      (card.isOpenEnded ? openGoals : targetGoals).push(card.html);
+    });
+
+    goalsWrap.innerHTML = targetGoals.length
+      ? targetGoals.join("")
+      : `<div class="cat-empty">No target-based goals yet — add one below (e.g. Wedding, Travel).</div>`;
+
+    if (openGoals.length){
+      otherSavingsBlock.style.display = 'block';
+      otherWrap.innerHTML = openGoals.join("");
+    } else {
+      otherSavingsBlock.style.display = 'none';
+      otherWrap.innerHTML = "";
+    }
 
     totalSavedEl.textContent = fmt(grandTotal);
     totalSavedHeadEl.textContent = fmt(grandTotal);
@@ -1145,7 +1203,7 @@
       .join("");
   }
 
-  goalsWrap.addEventListener('click', async (e) => {
+  async function handleGoalsClick(e){
     const delGoalBtn = e.target.closest('.del-goal');
     if (delGoalBtn){
       if (!confirm('Delete this goal and all of its entries? This cannot be undone.')) return;
@@ -1185,7 +1243,9 @@
       cancelContribEditBtn.classList.add('show');
       window.scrollTo({ top: document.querySelector('.savings-card').offsetTop - 20, behavior: 'smooth' });
     }
-  });
+  }
+  goalsWrap.addEventListener('click', handleGoalsClick);
+  otherWrap.addEventListener('click', handleGoalsClick);
 
   function resetContribForm(){
     editingContribId = null;
