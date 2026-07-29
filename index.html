@@ -92,6 +92,16 @@
     flex-wrap:wrap; gap:1rem;
     box-sizing:border-box;
   }
+  .hamburger-btn{
+    background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.14);
+    border-radius:10px; width:40px; height:40px; flex-shrink:0; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; gap:3px; flex-direction:column;
+    transition:background .15s ease;
+  }
+  .hamburger-btn:hover{ background:rgba(255,255,255,0.12); }
+  .hamburger-btn span{ display:block; width:18px; height:2px; background:#fdfaf2; border-radius:2px; }
+
+  .header-left{ display:flex; align-items:center; gap:0.85rem; min-width:0; }
   .brand{ display:flex; align-items:center; gap:0.85rem; min-width:0; }
   .brand-mark{
     width:44px; height:44px; border-radius:11px;
@@ -153,19 +163,8 @@
   .status-sep{ opacity:0.5; }
   #clock{ margin-left:auto; color:var(--text-soft); letter-spacing:0.03em; white-space:nowrap; }
 
-  .grid{ display:grid; grid-template-columns:1.4fr 1fr; gap:1.4rem; margin-top:1rem; }
+  .grid{ display:flex; flex-direction:column; gap:1.4rem; margin-top:1rem; }
   .grid > div{ min-width:0; }
-  .card-overall{ grid-column:1; grid-row:1; }
-  .card-newentry{ grid-column:2; grid-row:1 / span 3; }
-  .card-spending{ grid-column:1; grid-row:2; }
-  .card-entries{ grid-column:1; grid-row:3; }
-  @media (max-width:900px){
-    .grid{ grid-template-columns:1fr; }
-    .card-overall{ grid-column:1; grid-row:auto; order:1; }
-    .card-newentry{ grid-column:1; grid-row:auto; order:2; }
-    .card-spending{ grid-column:1; grid-row:auto; order:3; }
-    .card-entries{ grid-column:1; grid-row:auto; order:4; }
-  }
 
   .card{
     background:var(--card);
@@ -216,8 +215,8 @@
     text-transform:uppercase; color:var(--text-dim); display:block;
   }
   .stats .value{
-    font-family:'Fraunces',serif; font-size:clamp(1.2rem, 2vw, 1.6rem); font-weight:600;
-    letter-spacing:-0.01em; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    font-family:'Fraunces',serif; font-size:clamp(1rem, 2vw, 1.6rem); font-weight:600;
+    letter-spacing:-0.01em; display:block; white-space:nowrap; overflow:visible; text-overflow:clip;
   }
   .stats .saved .value{ color:var(--gold-2); }
   .stats .income .value{ color:var(--income); }
@@ -231,12 +230,20 @@
   @media (max-width:640px){
     .stats{ grid-template-columns:1fr; padding:1rem; gap:0.65rem; }
     .stats > div{
-      display:grid; grid-template-columns:auto 1fr auto; align-items:center;
-      column-gap:0.75rem; padding:0.85rem 1.1rem;
+      display:grid; grid-template-columns:auto 1fr; align-items:center;
+      grid-template-areas:"icon label" "value value";
+      column-gap:0.75rem; row-gap:0.35rem; padding:0.85rem 1.1rem;
     }
     .stats > div::before{ top:0.55rem; bottom:0.55rem; }
-    .stats .label{ grid-column:2; }
-    .stats .value{ grid-column:3; font-size:1.15rem; }
+    .stats .icon{ grid-area:icon; }
+    .stats .label{ grid-area:label; }
+    /* Value gets its own full-width row so long amounts always fit instead
+       of being squeezed into a narrow auto-sized column and ellipsis-clipped. */
+    .stats .value{
+      grid-area:value; text-align:right;
+      font-size:clamp(1rem, 5.5vw, 1.3rem);
+      white-space:nowrap; overflow:visible; text-overflow:clip;
+    }
   }
 
   .saved-breakdown{
@@ -441,13 +448,25 @@
     font-family:'JetBrains Mono',monospace; font-size:0.62rem; color:var(--text-dim);
     margin-top:0.3rem; letter-spacing:0.03em;
   }
-  .goal-card .del-goal{
+  .goal-card .goal-head-actions{ display:flex; gap:0.4rem; flex-shrink:0; }
+  .goal-card .del-goal, .goal-card .edit-goal{
     background:var(--paper-2); border:1px solid var(--rule-soft); width:24px; height:24px; border-radius:50%;
-    color:var(--text-dim); cursor:pointer; font-size:0.75rem; line-height:1; flex-shrink:0;
+    color:var(--text-dim); cursor:pointer; font-size:0.72rem; line-height:1; flex-shrink:0;
     display:flex; align-items:center; justify-content:center; transition:all .15s ease;
   }
   .goal-card .del-goal:hover{ color:#fff; background:var(--expense); border-color:var(--expense); }
-  .goal-card .goal-amounts{ display:flex; justify-content:space-between; align-items:baseline; margin-bottom:0.6rem; }
+  .goal-card .edit-goal:hover{ color:#fff; background:var(--gold-2); border-color:var(--gold-2); }
+
+  .goal-quick-actions{ display:flex; gap:0.5rem; margin-top:0.9rem; }
+  .goal-quick-actions button{
+    flex:1; padding:0.48rem 0.5rem; border-radius:8px; font-size:0.72rem; font-weight:700; cursor:pointer;
+    border:1px solid transparent; transition:background .15s ease, color .15s ease, border-color .15s ease;
+  }
+  .goal-quick-actions .quick-add{ background:var(--income-soft); color:var(--income); border-color:rgba(31,110,92,0.3); }
+  .goal-quick-actions .quick-add:hover{ background:var(--income); color:#fdfaf2; }
+  .goal-quick-actions .quick-withdraw{ background:var(--expense-soft); color:var(--expense); border-color:rgba(161,61,44,0.3); }
+  .goal-quick-actions .quick-withdraw:hover{ background:var(--expense); color:#fdfaf2; }
+  .goal-card .goal-amounts{ display:flex; flex-wrap:wrap; justify-content:space-between; align-items:baseline; gap:0.3rem; margin-bottom:0.6rem; }
   .goal-card .goal-saved{ font-family:'Fraunces',serif; font-weight:700; font-size:1.4rem; color:var(--ink); }
   .goal-card .goal-target{ font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-dim); }
   .goal-card .track{ height:9px; background:var(--rule-soft); border-radius:99px; overflow:hidden; margin-bottom:0.5rem; }
@@ -573,18 +592,181 @@
   @media (max-height:420px) and (orientation:landscape){
     header{ padding-top:0.6rem; padding-bottom:0.6rem; }
   }
+
+  /* ---- Entry drawer : all data-entry forms live here ---- */
+  .drawer-overlay{
+    position:fixed; inset:0; background:rgba(22,35,58,0.45);
+    backdrop-filter:blur(1px);
+    opacity:0; pointer-events:none; transition:opacity .25s ease;
+    z-index:60;
+  }
+  .drawer-overlay.open{ opacity:1; pointer-events:auto; }
+
+  .drawer{
+    position:fixed; top:0; left:0; bottom:0; width:min(400px, 88vw);
+    background:var(--paper-2);
+    box-shadow:24px 0 48px -20px rgba(22,35,58,0.5);
+    transform:translateX(-100%);
+    transition:transform .28s cubic-bezier(.4,0,.2,1);
+    z-index:70; display:flex; flex-direction:column;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .drawer.open{ transform:translateX(0); }
+
+  .drawer-head{
+    background:linear-gradient(180deg, var(--ink), var(--ink-2));
+    border-bottom:3px solid var(--gold);
+    padding:1.15rem 1.25rem;
+    display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+    padding-top:max(1.15rem, env(safe-area-inset-top));
+  }
+  .drawer-head span{ font-family:'Fraunces',serif; font-weight:600; font-size:1.05rem; color:#fdfaf2; }
+  .drawer-close{
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.16); color:#fdfaf2;
+    width:32px; height:32px; border-radius:50%; cursor:pointer; font-size:1rem; line-height:1;
+    display:flex; align-items:center; justify-content:center; transition:background .15s ease;
+  }
+  .drawer-close:hover{ background:rgba(255,255,255,0.18); }
+
+  .drawer-body{ overflow-y:auto; -webkit-overflow-scrolling:touch; flex:1; }
+  .drawer-section{ border-bottom:1px solid var(--rule-soft); }
+  .drawer-section:last-child{ border-bottom:none; }
+  .drawer-section-head{
+    padding:1rem 1.25rem 0; display:flex; align-items:center; gap:0.5rem;
+  }
+  .drawer-section-head .bullet{ width:7px; height:7px; border-radius:50%; background:var(--gold); flex-shrink:0; }
+  .drawer-section-head span{
+    font-family:'JetBrains Mono',monospace; font-size:0.65rem; letter-spacing:0.14em;
+    text-transform:uppercase; color:var(--text-dim);
+  }
+
+  @media (max-width:420px){
+    .drawer{ width:100vw; }
+  }
+  .drawer .row{ grid-template-columns:1fr; }
+  .drawer form{ padding:0; }
 </style>
 </head>
 <body>
 
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<aside class="drawer" id="drawer" aria-label="Add entry menu">
+  <div class="drawer-head">
+    <span>Add to Ledger</span>
+    <button class="drawer-close" id="drawerClose" aria-label="Close menu">✕</button>
+  </div>
+  <div class="drawer-body">
+
+    <div class="drawer-section">
+      <div class="drawer-section-head"><span class="bullet"></span><span id="formTitle">New Entry</span></div>
+      <form id="entryForm" style="padding:0.8rem 1.25rem 1.25rem;">
+        <div class="row">
+          <div class="type-toggle" id="typeToggle">
+            <button type="button" data-type="Income" class="active">+ Income</button>
+            <button type="button" data-type="Expense">− Expense</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="date">Date</label>
+            <input type="date" id="date" required>
+          </div>
+          <div class="field amount-field">
+            <label for="amount">Amount (PHP)</label>
+            <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="category">Category</label>
+            <select id="category">
+              <option>Salary</option><option>Freelance</option><option>Food</option>
+              <option>Transport</option><option>Bills</option><option>Rent</option>
+              <option>Shopping</option><option>Health</option><option>Savings</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="description">Description</label>
+            <input type="text" id="description" placeholder="e.g. Jeepney fare">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn" id="submitBtn">Add to Ledger</button>
+        <button type="button" class="cancel-edit" id="cancelEdit">Cancel edit</button>
+      </form>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-head"><span class="bullet"></span><span id="goalFormTitle">New Goal</span></div>
+      <form id="goalForm" style="padding:0.8rem 1.25rem 1.25rem;">
+        <div class="row">
+          <div class="field full">
+            <label for="goalName">Goal name</label>
+            <input type="text" id="goalName" placeholder="e.g. Wedding, Others" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field full amount-field">
+            <label for="goalTarget">Target amount (PHP) <span style="text-transform:none;letter-spacing:0;opacity:0.7;">— optional</span></label>
+            <input type="number" id="goalTarget" step="0.01" min="0" placeholder="Leave blank for open-ended">
+          </div>
+        </div>
+        <div class="row">
+          <div class="field full">
+            <label for="goalDate">Target date (optional)</label>
+            <input type="date" id="goalDate">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn secondary" id="goalSubmitBtn">Create Goal</button>
+        <button type="button" class="cancel-edit" id="cancelGoalEdit">Cancel edit</button>
+      </form>
+    </div>
+
+    <div class="drawer-section">
+      <div class="drawer-section-head"><span class="bullet"></span><span>Add Money / Withdraw</span></div>
+      <form id="contribForm" style="padding:0.8rem 1.25rem 1.25rem;">
+        <div class="row">
+          <div class="field full">
+            <label for="contribGoal">Goal</label>
+            <select id="contribGoal" required></select>
+          </div>
+        </div>
+        <div class="row">
+          <div class="type-toggle" id="contribToggle">
+            <button type="button" data-type="Deposit" class="active">+ Add</button>
+            <button type="button" data-type="Withdraw">− Withdraw</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field full amount-field">
+            <label for="contribAmount">Amount (PHP)</label>
+            <input type="number" id="contribAmount" step="0.01" min="0" placeholder="0.00" required>
+          </div>
+          <div class="field full">
+            <label for="contribNote">Note (optional)</label>
+            <input type="text" id="contribNote" placeholder="e.g. Bonus">
+          </div>
+        </div>
+        <button type="submit" class="submit-btn secondary" id="contribSubmitBtn">Save</button>
+        <button type="button" class="cancel-edit" id="cancelContribEdit">Cancel edit</button>
+      </form>
+    </div>
+
+  </div>
+</aside>
+
 <div class="top-bar">
   <header>
-    <div class="brand">
+    <div class="header-left">
+      <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open entry menu" title="Add entry / goal / money">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="brand">
       <div class="brand-mark"><img src="data:image/png;base64,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" alt="Ledger logo" width="44" height="44"></div>
       <div>
         <div class="eyebrow">Personal Finance</div>
         <h1>Ledger Dashboard</h1>
       </div>
+    </div>
     </div>
     <div class="month-nav">
       <button id="prevMonth" aria-label="Previous month">‹</button>
@@ -612,44 +794,6 @@
         <div class="saved"><span class="icon">◆</span><span class="label">Total Saved</span><span class="value mono" id="totalSaved">₱0.00</span></div>
       </div>
       <div class="saved-breakdown" id="savedBreakdown"></div>
-    </div>
-
-    <div class="card card-newentry" style="margin-top:1.4rem;">
-      <div class="card-head"><span id="formTitle">New Entry</span></div>
-      <form id="entryForm">
-          <div class="row">
-            <div class="type-toggle" id="typeToggle">
-              <button type="button" data-type="Income" class="active">+ Income</button>
-              <button type="button" data-type="Expense">− Expense</button>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="date">Date</label>
-              <input type="date" id="date" required>
-            </div>
-            <div class="field amount-field">
-              <label for="amount">Amount (PHP)</label>
-              <input type="number" id="amount" step="0.01" min="0" placeholder="0.00" required>
-            </div>
-          </div>
-          <div class="row">
-            <div class="field">
-              <label for="category">Category</label>
-              <select id="category">
-                <option>Salary</option><option>Freelance</option><option>Food</option>
-                <option>Transport</option><option>Bills</option><option>Rent</option>
-                <option>Shopping</option><option>Health</option><option>Savings</option><option>Other</option>
-              </select>
-            </div>
-            <div class="field">
-              <label for="description">Description</label>
-              <input type="text" id="description" placeholder="e.g. Jeepney fare">
-            </div>
-          </div>
-          <button type="submit" class="submit-btn" id="submitBtn">Add to Ledger</button>
-          <button type="button" class="cancel-edit" id="cancelEdit">Cancel edit</button>
-        </form>
     </div>
 
     <div class="card card-spending" style="margin-top:1.4rem;">
@@ -695,57 +839,6 @@
         </div>
         <div class="goals-wrap other-wrap" id="otherWrap"></div>
       </div>
-
-    <div class="savings-forms">
-      <form id="goalForm" class="mini-form">
-        <div class="mini-form-title">New Goal</div>
-        <div class="row">
-          <div class="field">
-            <label for="goalName">Goal name</label>
-            <input type="text" id="goalName" placeholder="e.g. Wedding, Others" required>
-          </div>
-          <div class="field amount-field">
-            <label for="goalTarget">Target amount (PHP) <span style="text-transform:none;letter-spacing:0;opacity:0.7;">— optional</span></label>
-            <input type="number" id="goalTarget" step="0.01" min="0" placeholder="Leave blank for open-ended">
-          </div>
-        </div>
-        <div class="row">
-          <div class="field full">
-            <label for="goalDate">Target date (optional)</label>
-            <input type="date" id="goalDate">
-          </div>
-        </div>
-        <button type="submit" class="submit-btn secondary">Create Goal</button>
-      </form>
-
-      <form id="contribForm" class="mini-form">
-        <div class="mini-form-title">Add Money / Withdraw</div>
-        <div class="row">
-          <div class="field full">
-            <label for="contribGoal">Goal</label>
-            <select id="contribGoal" required></select>
-          </div>
-        </div>
-        <div class="row">
-          <div class="type-toggle" id="contribToggle">
-            <button type="button" data-type="Deposit" class="active">+ Add</button>
-            <button type="button" data-type="Withdraw">− Withdraw</button>
-          </div>
-        </div>
-        <div class="row">
-          <div class="field amount-field">
-            <label for="contribAmount">Amount (PHP)</label>
-            <input type="number" id="contribAmount" step="0.01" min="0" placeholder="0.00" required>
-          </div>
-          <div class="field">
-            <label for="contribNote">Note (optional)</label>
-            <input type="text" id="contribNote" placeholder="e.g. Bonus">
-          </div>
-        </div>
-        <button type="submit" class="submit-btn secondary" id="contribSubmitBtn">Save</button>
-        <button type="button" class="cancel-edit" id="cancelContribEdit">Cancel edit</button>
-      </form>
-      </div>
     </div>
   </div>
 
@@ -771,6 +864,25 @@
   let editingContribId = null;
 
   const statusEl = document.getElementById('status');
+  const drawer = document.getElementById('drawer');
+  const drawerOverlay = document.getElementById('drawerOverlay');
+  const hamburgerBtn = document.getElementById('hamburgerBtn');
+  const drawerClose = document.getElementById('drawerClose');
+
+  function openDrawer(){
+    drawer.classList.add('open');
+    drawerOverlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer(){
+    drawer.classList.remove('open');
+    drawerOverlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  hamburgerBtn.addEventListener('click', openDrawer);
+  drawerClose.addEventListener('click', closeDrawer);
+  drawerOverlay.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
   const statusTextEl = document.getElementById('statusText');
   const clockEl = document.getElementById('clock');
   const refreshBtn = document.getElementById('refreshBtn');
@@ -785,6 +897,10 @@
   const allTimeBtn = document.getElementById('allTime');
 
   const goalForm = document.getElementById('goalForm');
+  const goalSubmitBtn = document.getElementById('goalSubmitBtn');
+  const cancelGoalEditBtn = document.getElementById('cancelGoalEdit');
+  const goalFormTitle = document.getElementById('goalFormTitle');
+  let editingGoalId = null;
   const contribForm = document.getElementById('contribForm');
   const contribToggle = document.getElementById('contribToggle');
   const goalsWrap = document.getElementById('goalsWrap');
@@ -848,6 +964,37 @@
     const num = Math.abs(Number(n) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     return sign + CURRENCY + num;
   }
+
+  // Auto-shrink-to-fit: whatever amount lands in these elements, keep shrinking
+  // the font size (down to a sensible floor) until the whole number fits on
+  // one line inside its box, instead of being squeezed/clipped off-screen.
+  function fitAmounts(){
+    document.querySelectorAll('.stats .value, .goal-saved, .goal-target, .head-total').forEach(el => {
+      if (!el.dataset.baseFontPx){
+        el.dataset.baseFontPx = parseFloat(getComputedStyle(el).fontSize);
+      }
+      let size = parseFloat(el.dataset.baseFontPx);
+      el.style.fontSize = size + 'px';
+      let guard = 0;
+      while (el.scrollWidth > el.clientWidth + 1 && size > 10 && guard < 40){
+        size -= 0.5;
+        el.style.fontSize = size + 'px';
+        guard++;
+      }
+    });
+  }
+
+  let fitAmountsRaf = null;
+  function scheduleFitAmounts(){
+    if (fitAmountsRaf) cancelAnimationFrame(fitAmountsRaf);
+    fitAmountsRaf = requestAnimationFrame(fitAmounts);
+  }
+
+  let resizeDebounce = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeDebounce);
+    resizeDebounce = setTimeout(scheduleFitAmounts, 120);
+  });
 
   function monthKey(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,'0'); }
 
@@ -929,6 +1076,7 @@
     document.getElementById('totalBalance').textContent = fmt(income - expense);
 
     renderCatBars(catTotals, expense);
+    scheduleFitAmounts();
   }
 
   function renderCatBars(catTotals, expenseTotal){
@@ -1080,8 +1228,19 @@
   tickClock();
   setInterval(tickClock, 1000);
 
-  // auto-refresh from the sheet every 2 minutes so the dashboard stays in sync
-  setInterval(refreshAll, 120000);
+  // Auto-refresh from the sheet every 2 minutes so the dashboard stays in
+  // sync — but pause while the tab is in the background (no point burning
+  // requests/battery on a screen nobody's looking at), and resync right away
+  // when the person switches back to the tab.
+  let autoRefreshTimer = setInterval(refreshAll, 120000);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden){
+      clearInterval(autoRefreshTimer);
+    } else {
+      refreshAll();
+      autoRefreshTimer = setInterval(refreshAll, 120000);
+    }
+  });
 
   async function loadAll(){
     // Single combined request (transactions + goals + contributions) instead of
@@ -1120,6 +1279,7 @@
       savedBreakdownEl.innerHTML = `<div class="empty">No goals yet</div>`;
       totalSavedHeadEl.textContent = fmt(0);
       goalsCountEl.textContent = "0 goals";
+      scheduleFitAmounts();
       return;
     }
 
@@ -1157,13 +1317,20 @@
               <div class="goal-name">${g.name}</div>
               <div class="goal-date">${dateLabel}</div>
             </div>
-            <button class="del-goal" data-id="${g.id}" title="Delete goal">✕</button>
+            <div class="goal-head-actions">
+              <button class="edit-goal" data-id="${g.id}" title="Edit goal">✎</button>
+              <button class="del-goal" data-id="${g.id}" title="Delete goal">✕</button>
+            </div>
           </div>
           <div class="goal-amounts">
             <span class="goal-saved mono">${fmt(saved)}</span>
             ${isOpenEnded ? "" : `<span class="goal-target mono">of ${fmt(g.targetAmount)}</span>`}
           </div>
           ${progressHtml}
+          <div class="goal-quick-actions">
+            <button type="button" class="quick-add" data-id="${g.id}">+ Add</button>
+            <button type="button" class="quick-withdraw" data-id="${g.id}">− Withdraw</button>
+          </div>
           <div class="contrib-list">
             <div class="contrib-list-title">Entries</div>
             ${contribsHtml}
@@ -1201,6 +1368,7 @@
     savedBreakdownEl.innerHTML = breakdownItems
       .map(b => `<div class="item"><span class="dot"></span><span class="name">${b.name}</span><span class="amt">${fmt(b.saved)}</span></div>`)
       .join("");
+    scheduleFitAmounts();
   }
 
   async function handleGoalsClick(e){
@@ -1224,6 +1392,36 @@
       renderSavings();
       render();
       await callScript('POST', { action: 'deleteContribution', id });
+      return;
+    }
+
+    const editGoalBtn = e.target.closest('.edit-goal');
+    if (editGoalBtn){
+      const id = editGoalBtn.dataset.id;
+      const g = goals.find(g => g.id === id);
+      if (!g) return;
+      editingGoalId = id;
+      document.getElementById('goalName').value = g.name;
+      document.getElementById('goalTarget').value = g.targetAmount || "";
+      document.getElementById('goalDate').value = g.targetDate || "";
+      goalSubmitBtn.textContent = "Save changes";
+      goalSubmitBtn.classList.add('editing');
+      cancelGoalEditBtn.classList.add('show');
+      goalFormTitle.textContent = "Edit Goal";
+      openDrawer();
+      return;
+    }
+
+    const quickAddBtn = e.target.closest('.quick-add');
+    const quickWithdrawBtn = e.target.closest('.quick-withdraw');
+    if (quickAddBtn || quickWithdrawBtn){
+      const id = (quickAddBtn || quickWithdrawBtn).dataset.id;
+      resetContribForm();
+      contribGoalSelect.value = id;
+      selectedContribType = quickAddBtn ? 'Deposit' : 'Withdraw';
+      [...contribToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === selectedContribType));
+      openDrawer();
+      setTimeout(() => document.getElementById('contribAmount').focus(), 320);
       return;
     }
 
@@ -1258,16 +1456,35 @@
   }
   cancelContribEditBtn.addEventListener('click', resetContribForm);
 
+  function resetGoalForm(){
+    editingGoalId = null;
+    goalForm.reset();
+    goalSubmitBtn.textContent = "Create Goal";
+    goalSubmitBtn.classList.remove('editing');
+    cancelGoalEditBtn.classList.remove('show');
+    goalFormTitle.textContent = "New Goal";
+  }
+  cancelGoalEditBtn.addEventListener('click', resetGoalForm);
+
   goalForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const payload = {
-      action: 'addGoal',
-      name: document.getElementById('goalName').value,
-      targetAmount: document.getElementById('goalTarget').value,
-      targetDate: document.getElementById('goalDate').value
-    };
+    const name = document.getElementById('goalName').value;
+    const targetAmount = document.getElementById('goalTarget').value;
+    const targetDate = document.getElementById('goalDate').value;
+
+    if (editingGoalId){
+      const payload = { action: 'updateGoal', id: editingGoalId, name, targetAmount, targetDate };
+      const g = goals.find(g => g.id === editingGoalId);
+      if (g) Object.assign(g, { name, targetAmount: targetAmount ? Number(targetAmount) : 0, targetDate });
+      renderSavings();
+      resetGoalForm();
+      await callScript('POST', payload);
+      return;
+    }
+
+    const payload = { action: 'addGoal', name, targetAmount, targetDate };
     const tempId = 'temp-' + Date.now();
-    goals.push({ id: tempId, name: payload.name, targetAmount: Number(payload.targetAmount), targetDate: payload.targetDate });
+    goals.push({ id: tempId, name, targetAmount: Number(targetAmount), targetDate });
     renderSavings();
     goalForm.reset();
 
