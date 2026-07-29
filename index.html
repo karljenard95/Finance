@@ -314,25 +314,49 @@
   .cat-empty{ padding:1.2rem 1.25rem; color:var(--text-dim); font-size:0.85rem; }
 
   /* ---- Bank / Personal Balance : per-account running totals ---- */
-  .bank-wrap{ padding:1.25rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(200px,100%),1fr)); gap:1rem; }
+  .bank-wrap{ padding:1.25rem; display:grid; grid-template-columns:repeat(auto-fit,minmax(min(220px,100%),1fr)); gap:1rem; align-items:start; }
   .bank-card{
     background:var(--paper-2); border:1px solid var(--rule-soft); border-radius:var(--radius-sm);
-    padding:1.1rem 1.2rem; position:relative; min-width:0;
+    position:relative; min-width:0; overflow:hidden;
   }
   .bank-card::before{
     content:""; position:absolute; left:0; top:0.8rem; bottom:0.8rem; width:3px;
-    background:var(--ink-2); border-radius:0 3px 3px 0;
+    background:var(--ink-2); border-radius:0 3px 3px 0; z-index:1;
   }
   .bank-card.negative::before{ background:var(--expense); }
+  .bank-card-toggle{
+    width:100%; background:transparent; border:none; cursor:pointer; text-align:left;
+    padding:1.1rem 1.2rem; display:flex; flex-direction:column; gap:0.45rem;
+  }
   .bank-card .bank-name{
     font-family:'JetBrains Mono',monospace; font-size:0.64rem; letter-spacing:0.09em;
-    text-transform:uppercase; color:var(--text-dim); margin-bottom:0.45rem;
+    text-transform:uppercase; color:var(--text-dim);
+    display:flex; align-items:center; gap:0.35rem;
   }
+  .bank-card .bank-name::after{ content:"▾"; font-size:0.6rem; opacity:0.55; transition:transform .15s ease; }
+  .bank-card.expanded .bank-name::after{ transform:rotate(180deg); }
   .bank-card .bank-balance{
     font-family:'Fraunces',serif; font-weight:700; font-size:1.3rem; color:var(--ink);
     white-space:nowrap; overflow:visible;
   }
   .bank-card.negative .bank-balance{ color:var(--expense); }
+  .bank-tx-list{
+    max-height:0; overflow:hidden; transition:max-height .2s ease;
+    border-top:1px solid var(--rule-soft);
+  }
+  .bank-card.expanded .bank-tx-list{ max-height:280px; overflow-y:auto; }
+  .bank-tx-row{
+    display:flex; align-items:baseline; gap:0.5rem; padding:0.5rem 1.2rem;
+    border-bottom:1px dashed var(--rule-soft); font-size:0.76rem;
+  }
+  .bank-tx-row:last-child{ border-bottom:none; }
+  .bank-tx-date{ color:var(--text-dim); font-size:0.68rem; flex-shrink:0; }
+  .bank-tx-desc{ color:var(--text); flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .bank-tx-amt{ font-family:'JetBrains Mono',monospace; font-weight:600; flex-shrink:0; }
+  .bank-tx-amt.Income{ color:var(--income); }
+  .bank-tx-amt.Expense{ color:var(--expense); }
+  .bank-tx-empty, .bank-tx-more{ padding:0.6rem 1.2rem; font-size:0.72rem; color:var(--text-dim); }
+
 
   /* ---- Manage Accounts panel (inside drawer) ---- */
   .acct-mgr-note{
@@ -380,6 +404,8 @@
   .row{ display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:0.75rem; }
   .field{ display:flex; flex-direction:column; min-width:0; }
   .field.full{ grid-column:1/-1; }
+  .field-hint{ font-size:0.72rem; color:var(--text-dim); margin-top:0.35rem; line-height:1.4; }
+  .field-hint b{ color:var(--text-soft); }
   .field.amount-field{ position:relative; }
   .field.amount-field::before{
     content:"₱"; position:absolute; left:0.7rem; top:calc(0.4em + 0.65rem + 3px);
@@ -745,13 +771,13 @@
 <div class="drawer-overlay" id="drawerOverlay"></div>
 <aside class="drawer" id="drawer" aria-label="Add entry menu">
   <div class="drawer-head">
-    <span id="drawerTitle">New Entry</span>
+    <span id="drawerTitle">New Transaction</span>
     <button class="drawer-close" id="drawerClose" aria-label="Close menu">✕</button>
   </div>
   <div class="drawer-body">
 
     <div class="drawer-section" id="section-entry">
-      <div class="drawer-section-head"><span class="bullet"></span><span id="formTitle">New Entry</span></div>
+      <div class="drawer-section-head"><span class="bullet"></span><span id="formTitle">New Transaction</span></div>
       <form id="entryForm" style="padding:0.8rem 1.25rem 1.25rem;">
         <div class="row">
           <div class="type-toggle" id="typeToggle">
@@ -770,30 +796,25 @@
           </div>
         </div>
         <div class="row">
+          <div class="field full">
+            <label for="account">Account — where the money is 🏦</label>
+            <select id="account"></select>
+            <div class="field-hint">This is what updates your <b>Bank / Personal Balance</b>. Pick which cash or bank account the money actually moved in or out of.</div>
+          </div>
+        </div>
+        <div class="row">
           <div class="field">
-            <label for="category">Category</label>
+            <label for="category">Category — what it's for 🏷️</label>
             <select id="category">
               <option>Salary</option><option>Freelance</option><option>Food</option>
               <option>Transport</option><option>Bills</option><option>Rent</option>
               <option>Shopping</option><option>Health</option><option>Savings</option><option>Other</option>
             </select>
+            <div class="field-hint">E.g. pick "Salary" for your paycheck, "Food" for a meal.</div>
           </div>
           <div class="field">
-            <label for="description">Description</label>
+            <label for="description">Description (optional)</label>
             <input type="text" id="description" placeholder="e.g. Jeepney fare">
-          </div>
-        </div>
-        <div class="row">
-          <div class="field full">
-            <label for="account">Account / Card</label>
-            <input type="text" id="account" list="accountList" placeholder="e.g. Cash, BDO" value="Cash">
-            <datalist id="accountList">
-              <option value="Cash">
-              <option value="BDO">
-              <option value="BPI">
-              <option value="MARI">
-              <option value="UB">
-            </datalist>
           </div>
         </div>
         <button type="submit" class="submit-btn" id="submitBtn">Add to Ledger</button>
@@ -1040,7 +1061,7 @@
   const actionMenu = document.getElementById('actionMenu');
   const drawerTitleEl = document.getElementById('drawerTitle');
   const DRAWER_SECTIONS = {
-    entry:    { title: 'New Entry',              el: 'section-entry' },
+    entry:    { title: 'New Transaction',         el: 'section-entry' },
     accounts: { title: 'Manage Accounts',         el: 'section-accounts' },
     goal:     { title: 'New Savings Goal',        el: 'section-goal' },
     contrib:  { title: 'Add / Withdraw Savings',  el: 'section-contrib' }
@@ -1151,12 +1172,13 @@
     editingId = null;
     form.reset();
     document.getElementById('date').valueAsDate = new Date();
+    document.getElementById('account').value = 'Cash';
     selectedType = "Income";
     [...typeToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === "Income"));
     submitBtn.textContent = "Add to Ledger";
     submitBtn.classList.remove('editing');
     cancelEditBtn.classList.remove('show');
-    formTitle.textContent = "New Entry";
+    formTitle.textContent = "New Transaction";
   }
 
   function fmt(n){
@@ -1355,24 +1377,73 @@
     const entries = [...known, ...extra];
     const bankWrap = document.getElementById('bankWrap');
 
-    bankWrap.innerHTML = entries.map(([acc, bal]) => `
+    bankWrap.innerHTML = entries.map(([acc, bal]) => {
+      const accTx = transactions
+        .filter(t => accountKey(t.account) === accountKey(acc))
+        .sort((a, b) => (a.date < b.date ? 1 : -1));
+      const shown = accTx.slice(0, 6);
+      const rowsHtml = shown.length === 0
+        ? `<div class="bank-tx-empty">No entries on this account yet.</div>`
+        : shown.map(t => `
+            <div class="bank-tx-row">
+              <span class="bank-tx-date mono">${t.date}</span>
+              <span class="bank-tx-desc">${t.description ? t.description : t.category}</span>
+              <span class="bank-tx-amt ${t.type}">${t.type === 'Expense' ? '−' : '+'}${fmt(t.amount)}</span>
+            </div>`).join("") + (accTx.length > shown.length ? `<div class="bank-tx-more">+ ${accTx.length - shown.length} more entr${accTx.length - shown.length === 1 ? 'y' : 'ies'}</div>` : "");
+
+      return `
       <div class="bank-card ${bal < 0 ? 'negative' : ''}">
-        <div class="bank-name">${acc === 'Cash' ? 'Cash on hand' : acc}</div>
-        <div class="bank-balance mono">${fmt(bal)}</div>
-      </div>`).join("");
+        <button type="button" class="bank-card-toggle" data-acc="${acc}">
+          <span class="bank-name">${acc === 'Cash' ? 'Cash on hand' : acc}</span>
+          <span class="bank-balance mono">${fmt(bal)}</span>
+        </button>
+        <div class="bank-tx-list">${rowsHtml}</div>
+      </div>`;
+    }).join("");
 
     const grandTotal = Object.values(totals).reduce((sum, v) => sum + v, 0);
     document.getElementById('totalBankBalance').textContent = fmt(grandTotal);
-    refreshAccountDatalist();
+    refreshAccountSelect();
   }
+  // Expand/collapse a bank card to reveal the actual entries (with
+  // description) that add up to its total — makes it obvious the balance
+  // is coming straight from your transactions, not a separate number.
+  document.getElementById('bankWrap').addEventListener('click', (e) => {
+    const btn = e.target.closest('.bank-card-toggle');
+    if (!btn) return;
+    btn.closest('.bank-card').classList.toggle('expanded');
+  });
 
-  // Keeps the "Account / Card" datalist on the entry form in sync with
-  // every account we currently know about.
-  function refreshAccountDatalist(){
-    const datalist = document.getElementById('accountList');
-    if (!datalist) return;
-    datalist.innerHTML = getAllAccountNames().map(a => `<option value="${a}">`).join("");
+  // Keeps the Account dropdown on the entry form in sync with every account
+  // we currently know about — a real <select> instead of free text means a
+  // transaction can never land in a stray "cash" vs "Cash" typo again.
+  const ADD_NEW_ACCOUNT_VALUE = '__add_new_account__';
+  function refreshAccountSelect(){
+    const select = document.getElementById('account');
+    if (!select) return;
+    const prev = select.value;
+    select.innerHTML = getAllAccountNames()
+      .map(a => `<option value="${a}">${a === 'Cash' ? 'Cash on hand' : a}</option>`)
+      .join("") + `<option value="${ADD_NEW_ACCOUNT_VALUE}">＋ Add new account…</option>`;
+    if (prev && [...select.options].some(o => o.value === prev)) select.value = prev;
+    else select.value = 'Cash';
   }
+  refreshAccountSelect();
+  document.getElementById('account').addEventListener('change', (e) => {
+    if (e.target.value !== ADD_NEW_ACCOUNT_VALUE) return;
+    const name = prompt('New account name (e.g. GCash, Maya):');
+    if (name && name.trim()){
+      const custom = loadCustomAccounts();
+      if (!custom.some(c => accountKey(c) === accountKey(name)) && !getAllAccountNames().some(a => accountKey(a) === accountKey(name))){
+        custom.push(name.trim());
+        saveCustomAccounts(custom);
+      }
+      refreshAccountSelect();
+      e.target.value = name.trim();
+    } else {
+      e.target.value = 'Cash';
+    }
+  });
 
   // ---- Manage Accounts panel: add a new account name ahead of time, or
   // remove one you added by mistake. Balances themselves are never edited
