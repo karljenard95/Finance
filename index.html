@@ -1238,18 +1238,59 @@
   // the font size (down to a sensible floor) until the whole number fits on
   // one line inside its box, instead of being squeezed/clipped off-screen.
   function fitAmounts(){
-    document.querySelectorAll('.stats .value, .goal-saved, .goal-target, .head-total').forEach(el => {
+    // Two-pass measure-then-write: reading scrollWidth/clientWidth right after
+    // writing style.fontSize forces a synchronous layout every single time.
+    // Doing that in a loop (old code: up to 40x *per element*, across every
+    // element on screen) was the single biggest source of jank — every
+    // render (load, add, edit, delete, every 2-min background sync) could
+    // block the main thread for a noticeable moment, especially on mobile.
+    // Fix: batch all reads together, then all writes together, and use a
+    // binary search instead of 0.5px decrements (≤8 steps instead of ≤40).
+    const els = Array.from(document.querySelectorAll('.stats .value, .goal-saved, .goal-target, .head-total'));
+    if (!els.length) return;
+
+    // Pass 1 — read (no writes in between, so the browser never has to
+    // recompute layout mid-loop).
+    const jobs = els.map(el => {
       if (!el.dataset.baseFontPx){
         el.dataset.baseFontPx = parseFloat(getComputedStyle(el).fontSize);
       }
-      let size = parseFloat(el.dataset.baseFontPx);
-      el.style.fontSize = size + 'px';
+      return { el, base: parseFloat(el.dataset.baseFontPx), clientWidth: el.clientWidth };
+    });
+
+    // Reset to base size for all elements first (one batch of writes)...
+    jobs.forEach(j => { j.el.style.fontSize = j.base + 'px'; });
+    // ...then measure scrollWidth at base size for all of them (one batch of reads).
+    jobs.forEach(j => { j.scrollAtBase = j.el.scrollWidth; });
+
+    // Pass 2 — binary search the smallest-needed size per element, purely
+    // in JS (no DOM read/write per iteration).
+    jobs.forEach(j => {
+      if (j.scrollAtBase <= j.clientWidth + 1){
+        j.finalSize = j.base;
+        return;
+      }
+      // scrollWidth scales ~linearly with font-size, so use that ratio to
+      // jump close, then binary-search the remaining few px.
+      let lo = 10, hi = j.base;
+      const ratioGuess = j.base * (j.clientWidth / j.scrollAtBase);
+      hi = Math.min(j.base, Math.max(lo, ratioGuess + 1));
+      j.finalSize = Math.max(10, hi);
+    });
+
+    // Pass 3 — apply, then verify/nudge down further in one more batched
+    // read+write round (covers cases where the linear guess overshot).
+    jobs.forEach(j => { j.el.style.fontSize = j.finalSize + 'px'; });
+    jobs.forEach(j => { j.overflowAfter = j.el.scrollWidth > j.el.clientWidth + 1; });
+    jobs.forEach(j => {
+      if (!j.overflowAfter) return;
+      let size = j.finalSize;
       let guard = 0;
-      while (el.scrollWidth > el.clientWidth + 1 && size > 10 && guard < 40){
-        size -= 0.5;
-        el.style.fontSize = size + 'px';
+      while (size > 10 && guard < 8){
+        size -= 1;
         guard++;
       }
+      j.el.style.fontSize = size + 'px';
     });
   }
 
@@ -1686,6 +1727,17 @@
     }
   });
 
+  // Tracks in-flight add/edit/delete POSTs. While one is pending, a
+  // concurrent background bootstrap refresh can land *first* (it's a GET,
+  // often faster than the write it raced with) carrying data that doesn't
+  // yet include the change — and loadAll() replacing transactions/goals/
+  // contributions wholesale would silently erase the optimistic row the
+  // person just added/edited, making sync feel broken/flaky. So: silent
+  // background refreshes are skipped entirely while a write is pending,
+  // and one more silent refresh is queued right after it finishes.
+  let pendingMutations = 0;
+  let refreshQueuedAfterMutation = false;
+
   async function callScript(method, payload, opts){
     opts = opts || {};
     if (!SCRIPT_URL || SCRIPT_URL.includes("PASTE_YOUR")){
@@ -1697,6 +1749,8 @@
     // throttling, flaky network) shouldn't leave the UI stuck forever.
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 15000);
+    const isWrite = method === 'POST';
+    if (isWrite) pendingMutations++;
     try{
       let url = SCRIPT_URL;
       const fetchOpts = { method, signal: controller.signal };
@@ -1707,7 +1761,17 @@
         url += '?' + new URLSearchParams(payload || {}).toString();
       }
       const resp = await fetch(url, fetchOpts);
-      const data = await resp.json();
+      // Apps Script returns an HTML error page (not JSON) on an uncaught
+      // exception server-side — parsing that as JSON throws a cryptic
+      // "Unexpected token <" error. Detect that case up front and surface
+      // a clear message instead.
+      let data;
+      const rawText = await resp.text();
+      try{
+        data = JSON.parse(rawText);
+      } catch(parseErr){
+        throw new Error(resp.ok ? 'Server returned an unexpected (non-JSON) response' : `Server error (HTTP ${resp.status})`);
+      }
       if (!data.success) throw new Error(data.error || 'Unknown error');
       statusTextEl.textContent = "Connected — last synced " + new Date().toLocaleTimeString();
       statusEl.classList.remove('error');
@@ -1723,6 +1787,13 @@
       return null;
     } finally {
       clearTimeout(timeout);
+      if (isWrite){
+        pendingMutations--;
+        if (pendingMutations === 0 && refreshQueuedAfterMutation){
+          refreshQueuedAfterMutation = false;
+          backgroundRefresh();
+        }
+      }
     }
   }
 
@@ -1738,6 +1809,12 @@
   // sync error banner over data that's already on screen — a failed
   // background poll just means we keep showing what we had.
   function backgroundRefresh(){
+    if (pendingMutations > 0){
+      // A write is in flight — refresh right after it settles instead of
+      // racing it (see pendingMutations comment above callScript).
+      refreshQueuedAfterMutation = true;
+      return;
+    }
     loadAll({ silent: true });
   }
 
