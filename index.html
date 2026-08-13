@@ -303,13 +303,30 @@
   .cat-bars{ padding:1.1rem 1.25rem 1.3rem; }
   .cat-row{ margin-bottom:0.85rem; }
   .cat-row:last-child{ margin-bottom:0; }
-  .cat-row .meta{ display:flex; justify-content:space-between; font-size:0.82rem; margin-bottom:0.4rem; color:var(--text); }
+  .cat-row-toggle{
+    display:block; width:100%; background:none; border:none; padding:0.3rem 0.15rem;
+    margin:0 -0.15rem; border-radius:8px; cursor:pointer; text-align:left;
+    font-family:inherit; transition:background .15s ease;
+  }
+  .cat-row-toggle:hover{ background:var(--gold-soft); }
+  .cat-row .meta{ display:flex; justify-content:space-between; align-items:center; font-size:0.82rem; margin-bottom:0.4rem; color:var(--text); }
+  .cat-row .meta span:first-child{ display:flex; align-items:center; gap:0.4rem; }
+  .cat-row .meta span:first-child::after{ content:"▾"; font-size:0.6rem; opacity:0.55; transition:transform .15s ease; }
+  .cat-row.expanded .meta span:first-child::after{ transform:rotate(180deg); }
   .cat-row .meta .amt{ color:var(--text-soft); }
   .cat-row .track{ height:6px; background:var(--rule-soft); border-radius:99px; position:relative; overflow:hidden; }
   .cat-row .fill{
     position:absolute; top:0; left:0; height:100%; border-radius:99px;
     background:var(--gold);
     transition:width .4s ease;
+  }
+  .cat-row .bank-tx-list{
+    max-height:0; overflow:hidden; transition:max-height .18s ease;
+    border-top:1px solid transparent;
+  }
+  .cat-row.expanded .bank-tx-list{
+    max-height:280px; overflow-y:auto; margin-top:0.6rem;
+    border-top:1px dashed var(--rule);
   }
   .cat-empty{ padding:1.2rem 1.25rem; color:var(--text-dim); font-size:0.85rem; }
 
@@ -1297,7 +1314,7 @@
     document.getElementById('totalExpense').textContent = fmt(expense);
     document.getElementById('totalBalance').textContent = fmt(income - expense);
 
-    renderCatBars(catTotals, expense);
+    renderCatBars(catTotals, expense, periodTx);
     renderBankBalances();
     scheduleFitAmounts();
   }
@@ -1508,21 +1525,45 @@
     showDrawerSection('accounts');
   });
 
-  function renderCatBars(catTotals, expenseTotal){
+  function renderCatBars(catTotals, expenseTotal, periodTx){
     const el = document.getElementById('catBars');
     const entries = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
     if (entries.length === 0){
       el.innerHTML = `<div class="cat-empty">No expenses for this period.</div>`;
       return;
     }
+    const txList = periodTx || [];
     el.innerHTML = entries.map(([cat, amt]) => {
       const pct = expenseTotal ? Math.round((amt/expenseTotal)*100) : 0;
+      const catTx = txList
+        .filter(t => t.type === 'Expense' && t.category === cat)
+        .sort((a, b) => (a.date < b.date ? 1 : -1));
+      const shown = catTx.slice(0, 6);
+      const rowsHtml = shown.length === 0
+        ? `<div class="bank-tx-empty">No entries in this category yet.</div>`
+        : shown.map(t => `
+            <div class="bank-tx-row">
+              <span class="bank-tx-date mono">${t.date}</span>
+              <span class="bank-tx-desc">${t.description ? t.description : t.category}</span>
+              <span class="bank-tx-amt Expense">−${fmt(t.amount)}</span>
+            </div>`).join("") + (catTx.length > shown.length ? `<div class="bank-tx-more">+ ${catTx.length - shown.length} more entr${catTx.length - shown.length === 1 ? 'y' : 'ies'}</div>` : "");
+
       return `<div class="cat-row">
-        <div class="meta"><span>${cat}</span><span class="mono amt">${fmt(amt)} · ${pct}%</span></div>
-        <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        <button type="button" class="cat-row-toggle" data-cat="${cat}">
+          <div class="meta"><span>${cat}</span><span class="mono amt">${fmt(amt)} · ${pct}%</span></div>
+          <div class="track"><div class="fill" style="width:${pct}%"></div></div>
+        </button>
+        <div class="bank-tx-list">${rowsHtml}</div>
       </div>`;
     }).join("");
   }
+  // Expand/collapse a category row to reveal the actual entries behind it —
+  // same interaction as the Bank / Personal Balance cards above.
+  document.getElementById('catBars').addEventListener('click', (e) => {
+    const btn = e.target.closest('.cat-row-toggle');
+    if (!btn) return;
+    btn.closest('.cat-row').classList.toggle('expanded');
+  });
 
   txBody.addEventListener('click', async (e) => {
     const delBtn = e.target.closest('.del');
