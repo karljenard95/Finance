@@ -1051,6 +1051,36 @@
   let selectedContribType = "Deposit";
   let editingContribId = null;
 
+  // ---------------------------------------------------------------------
+  // Local cache (stale-while-revalidate)
+  // ---------------------------------------------------------------------
+  // Apps Script web apps have real, unavoidable round-trip latency
+  // (often 1-3s) baked into every request on Google's side. Waiting on
+  // that before painting anything is what makes the dashboard *feel*
+  // slow. Instead: paint instantly from whatever we last saw locally,
+  // then silently refresh from the sheet in the background and patch
+  // the UI in place once fresh data arrives.
+  const LOCAL_CACHE_KEY = "ledger_cache_v1";
+
+  function readLocalCache_(){
+    try{
+      const raw = localStorage.getItem(LOCAL_CACHE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch(err){ return null; }
+  }
+
+  function writeLocalCache_(data){
+    try{
+      localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({
+        transactions: data.transactions || [],
+        goals: data.goals || [],
+        contributions: data.contributions || [],
+        savedAt: Date.now()
+      }));
+    } catch(err){ /* storage full/unavailable — safe to skip caching */ }
+  }
+
   const statusEl = document.getElementById('status');
   const drawer = document.getElementById('drawer');
   const drawerOverlay = document.getElementById('drawerOverlay');
@@ -1656,41 +1686,60 @@
     }
   });
 
-  async function callScript(method, payload){
+  async function callScript(method, payload, opts){
+    opts = opts || {};
     if (!SCRIPT_URL || SCRIPT_URL.includes("PASTE_YOUR")){
       statusTextEl.textContent = "Not connected — paste your Apps Script Web App URL into SCRIPT_URL in the HTML file.";
       statusEl.classList.add('error');
       return null;
     }
+    // Hard timeout — an Apps Script request that hangs (cold start, quota
+    // throttling, flaky network) shouldn't leave the UI stuck forever.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), opts.timeoutMs || 15000);
     try{
       let url = SCRIPT_URL;
-      const opts = { method };
+      const fetchOpts = { method, signal: controller.signal };
       if (method === 'POST'){
-        opts.body = JSON.stringify(payload);
-        opts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
+        fetchOpts.body = JSON.stringify(payload);
+        fetchOpts.headers = { 'Content-Type': 'text/plain;charset=utf-8' };
       } else {
         url += '?' + new URLSearchParams(payload || {}).toString();
       }
-      const resp = await fetch(url, opts);
+      const resp = await fetch(url, fetchOpts);
       const data = await resp.json();
       if (!data.success) throw new Error(data.error || 'Unknown error');
       statusTextEl.textContent = "Connected — last synced " + new Date().toLocaleTimeString();
       statusEl.classList.remove('error');
       return data;
     } catch(err){
-      statusTextEl.textContent = "Sync error: " + err.message;
-      statusEl.classList.add('error');
+      // A background refresh failing quietly is fine — we're already
+      // showing cached data. Only surface the error if this was a
+      // user-initiated call (add/edit/delete/manual refresh).
+      if (!opts.silent){
+        statusTextEl.textContent = "Sync error: " + (err.name === 'AbortError' ? 'request timed out' : err.message);
+        statusEl.classList.add('error');
+      }
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
   async function refreshAll(){
     if (refreshBtn.classList.contains('spinning')) return;
     refreshBtn.classList.add('spinning');
-    await loadAll();
+    await loadAll(); // user-initiated: show errors, don't fail silently
     setTimeout(() => refreshBtn.classList.remove('spinning'), 300);
   }
   refreshBtn.addEventListener('click', refreshAll);
+
+  // Background refresh: same data, but never spins the button or shows a
+  // sync error banner over data that's already on screen — a failed
+  // background poll just means we keep showing what we had.
+  function backgroundRefresh(){
+    loadAll({ silent: true });
+  }
 
   function tickClock(){
     clockEl.textContent = new Date().toLocaleString(undefined, {
@@ -1704,32 +1753,57 @@
   // sync — but pause while the tab is in the background (no point burning
   // requests/battery on a screen nobody's looking at), and resync right away
   // when the person switches back to the tab.
-  let autoRefreshTimer = setInterval(refreshAll, 120000);
+  let autoRefreshTimer = setInterval(backgroundRefresh, 120000);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden){
       clearInterval(autoRefreshTimer);
     } else {
-      refreshAll();
-      autoRefreshTimer = setInterval(refreshAll, 120000);
+      backgroundRefresh();
+      autoRefreshTimer = setInterval(backgroundRefresh, 120000);
     }
   });
 
-  async function loadAll(){
-    // Single combined request (transactions + goals + contributions) instead of
-    // two round-trips — halves network latency on load and on every refresh.
-    const data = await callScript('GET', { action: 'bootstrap' });
-    if (data){
-      // IDs coming back from Google Sheets can be numbers while every id we
-      // generate client-side (temp-..., dataset.id from the DOM) is a string.
-      // Normalize everything to strings so === comparisons never silently
-      // fail for entries loaded from the sheet (this was breaking edit/
-      // delete for older goals like Wedding/Housing).
-      transactions = (data.transactions || []).map(t => ({ ...t, id: String(t.id) }));
-      goals = (data.goals || []).map(g => ({ ...g, id: String(g.id) }));
-      contributions = (data.contributions || []).map(c => ({ ...c, id: String(c.id), goalId: String(c.goalId) }));
-    }
+  function applyBootstrapData_(data){
+    // IDs coming back from Google Sheets can be numbers while every id we
+    // generate client-side (temp-..., dataset.id from the DOM) is a string.
+    // Normalize everything to strings so === comparisons never silently
+    // fail for entries loaded from the sheet (this was breaking edit/
+    // delete for older goals like Wedding/Housing).
+    transactions = (data.transactions || []).map(t => ({ ...t, id: String(t.id) }));
+    goals = (data.goals || []).map(g => ({ ...g, id: String(g.id) }));
+    contributions = (data.contributions || []).map(c => ({ ...c, id: String(c.id), goalId: String(c.goalId) }));
+  }
+
+  // Paint immediately from whatever was cached locally on a previous visit
+  // — no network wait. This is what makes first paint feel instant instead
+  // of blank-then-populated.
+  function hydrateFromLocalCache(){
+    const cached = readLocalCache_();
+    if (!cached) return false;
+    applyBootstrapData_(cached);
     renderSavings();
     render();
+    const ageSec = Math.round((Date.now() - (cached.savedAt || 0)) / 1000);
+    statusTextEl.textContent = "Showing cached data (" + ageSec + "s old) — syncing…";
+    return true;
+  }
+
+  async function loadAll(opts){
+    opts = opts || {};
+    // Single combined request (transactions + goals + contributions) instead of
+    // two round-trips — halves network latency on load and on every refresh.
+    const data = await callScript('GET', { action: 'bootstrap' }, { silent: opts.silent, timeoutMs: opts.timeoutMs });
+    if (data){
+      applyBootstrapData_(data);
+      writeLocalCache_(data);
+      renderSavings();
+      render();
+    } else if (!opts.silent){
+      // Network call failed outright and we had nothing cached to fall
+      // back on — still render the (empty) state rather than nothing.
+      renderSavings();
+      render();
+    }
   }
 
   function goalSaved(goalId){
@@ -1981,7 +2055,11 @@
     }
   });
 
-  loadAll();
+  // Instant paint from cache (if any), then a silent background sync so
+  // the numbers on screen are never more than one refresh cycle stale —
+  // without ever making the person stare at a blank dashboard.
+  const hadCache = hydrateFromLocalCache();
+  loadAll({ silent: hadCache });
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
