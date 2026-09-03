@@ -827,12 +827,18 @@
     header{ padding-top:0.6rem; padding-bottom:0.6rem; }
   }
 
-  /* ---- Entry drawer : all data-entry forms live here ---- */
+  /* ---- Entry drawer : all data-entry forms live here ----
+     z-index is deliberately higher than the "View All Transactions"
+     popup (.tx-modal-overlay / #ledgerCard @ 900/901) so that clicking
+     edit/remove on a row while that popup is open opens this drawer as
+     a standalone editor *on top* of the list, instead of silently
+     rendering underneath it. Closing the drawer returns you to the
+     still-open transactions list so you can edit the next row too. ---- */
   .drawer-overlay{
     position:fixed; inset:0; background:rgba(22,35,58,0.45);
     backdrop-filter:blur(1px);
     opacity:0; pointer-events:none; transition:opacity .25s ease;
-    z-index:60;
+    z-index:950;
   }
   .drawer-overlay.open{ opacity:1; pointer-events:auto; }
 
@@ -842,7 +848,7 @@
     box-shadow:24px 0 48px -20px rgba(22,35,58,0.5);
     transform:translateX(-100%);
     transition:transform .28s cubic-bezier(.4,0,.2,1);
-    z-index:70; display:flex; flex-direction:column;
+    z-index:951; display:flex; flex-direction:column;
     padding-bottom:env(safe-area-inset-bottom);
   }
   .drawer.open{ transform:translateX(0); }
@@ -983,10 +989,16 @@
           </div>
         </div>
         <div class="row">
-          <div class="field full amount-field">
+          <div class="field">
+            <label for="contribDate">Date</label>
+            <input type="date" id="contribDate" required>
+          </div>
+          <div class="field amount-field">
             <label for="contribAmount">Amount (PHP)</label>
             <input type="number" id="contribAmount" step="0.01" min="0" placeholder="0.00" required>
           </div>
+        </div>
+        <div class="row">
           <div class="field full">
             <label for="contribNote">Note (optional)</label>
             <input type="text" id="contribNote" placeholder="e.g. Bonus">
@@ -1298,6 +1310,10 @@
   txModalClose.addEventListener('click', closeTxModal);
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !document.body.classList.contains('tx-modal-open')) return;
+    // If the standalone editor is open on top of this popup, Escape should
+    // only close *that* (handled by the drawer's own listener) — not also
+    // drop the user out of the whole transactions list in the same press.
+    if (drawer.classList.contains('open')) return;
     // First Escape clears an active search; a second one closes the popup.
     if (searchQuery){
       searchQuery = "";
@@ -1389,6 +1405,7 @@
   });
 
   document.getElementById('date').valueAsDate = new Date();
+  document.getElementById('contribDate').valueAsDate = new Date();
 
   typeToggle.addEventListener('click', (e) => {
     const btn = e.target.closest('button');
@@ -1993,6 +2010,7 @@
       if (!c) return;
       editingContribId = id;
       contribGoalSelect.value = c.goalId;
+      document.getElementById('contribDate').value = c.date;
       document.getElementById('contribAmount').value = c.amount;
       document.getElementById('contribNote').value = c.note || "";
       selectedContribType = c.type;
@@ -2378,6 +2396,7 @@
   function resetContribForm(){
     editingContribId = null;
     contribForm.reset();
+    document.getElementById('contribDate').valueAsDate = new Date();
     selectedContribType = "Deposit";
     [...contribToggle.children].forEach(b => b.classList.toggle('active', b.dataset.type === "Deposit"));
     contribSubmitBtn.textContent = "Save";
@@ -2440,10 +2459,11 @@
         goalId: goalId,
         type: selectedContribType,
         amount: document.getElementById('contribAmount').value,
-        note: document.getElementById('contribNote').value
+        note: document.getElementById('contribNote').value,
+        date: document.getElementById('contribDate').value
       };
       const c = contributions.find(c => c.id === editingContribId);
-      if (c) Object.assign(c, { goalId, type: payload.type, amount: Number(payload.amount), note: payload.note });
+      if (c) Object.assign(c, { goalId, type: payload.type, amount: Number(payload.amount), note: payload.note, date: payload.date });
       renderSavings();
       render();
       resetContribForm();
@@ -2457,10 +2477,11 @@
       goalId: goalId,
       type: selectedContribType,
       amount: document.getElementById('contribAmount').value,
-      note: document.getElementById('contribNote').value
+      note: document.getElementById('contribNote').value,
+      date: document.getElementById('contribDate').value
     };
     const tempId = 'temp-' + Date.now();
-    contributions.push({ id: tempId, goalId, type: payload.type, amount: Number(payload.amount), note: payload.note, date: new Date().toISOString().slice(0,10) });
+    contributions.push({ id: tempId, goalId, type: payload.type, amount: Number(payload.amount), note: payload.note, date: payload.date });
     renderSavings();
     render();
     resetContribForm();
