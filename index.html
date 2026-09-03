@@ -257,6 +257,37 @@
   .stats .bankbal .value{ color:var(--ink-2); }
   .stats .balance{ background:var(--gold-soft); border-color:rgba(184,134,59,0.3); }
 
+  /* ---- Clicking a stat filters the ledger table below to that slice ---- */
+  .stats > div.clickable{
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+    transition:transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+  }
+  .stats > div.clickable:hover{
+    transform:translateY(-1px);
+    box-shadow:0 10px 20px -14px rgba(22,35,58,0.35);
+  }
+  .stats > div.clickable:active{ transform:translateY(0); }
+  .stats > div.clickable::after{
+    content:"View entries →"; font-family:'JetBrains Mono',monospace; font-size:0.6rem;
+    letter-spacing:0.04em; color:var(--text-dim); opacity:0; transition:opacity .12s ease;
+  }
+  .stats > div.clickable:hover::after{ opacity:1; }
+  .stats > div.clickable.filter-active{
+    border-color:var(--gold); box-shadow:0 0 0 2px var(--gold-soft);
+  }
+
+  .table-filter-chip{
+    display:inline-flex; align-items:center; gap:0.4rem;
+    background:var(--gold-soft); color:var(--gold-2); border:1px solid rgba(184,134,59,0.35);
+    border-radius:999px; padding:0.28rem 0.7rem 0.28rem 0.85rem; margin-left:0.6rem;
+    font-family:'JetBrains Mono',monospace; font-size:0.66rem; letter-spacing:0.03em;
+    vertical-align:middle;
+  }
+  .table-filter-chip button{
+    background:none; border:none; cursor:pointer; color:var(--gold-2); font-size:0.85rem;
+    line-height:1; padding:0; display:flex; align-items:center;
+  }
+
   @media (max-width:900px){
     .stats{ grid-template-columns:repeat(auto-fit, minmax(140px,1fr)); }
   }
@@ -934,6 +965,11 @@
             <span class="menu-icon">💰</span>
             <span class="menu-text">Add / Withdraw Savings<span class="menu-sub">Move money on an existing goal</span></span>
           </button>
+          <div class="menu-divider"></div>
+          <button type="button" data-action="viewAll">
+            <span class="menu-icon">📜</span>
+            <span class="menu-text">View All Transactions<span class="menu-sub">Every entry, not just this month</span></span>
+          </button>
         </div>
       </div>
       <div class="brand">
@@ -963,12 +999,12 @@
   <div class="grid">
     <div class="card card-overall" style="margin-top:1.4rem;">
       <div class="card-head">Overall Summary <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:500;letter-spacing:0.08em;color:var(--text-dim);text-transform:uppercase;">All transactions + savings</span></div>
-      <div class="stats">
-        <div class="income"><span class="icon">↑</span><span class="label">Income</span><span class="value mono" id="totalIncome">₱0.00</span></div>
-        <div class="expense"><span class="icon">↓</span><span class="label">Expenses</span><span class="value mono" id="totalExpense">₱0.00</span></div>
-        <div class="balance"><span class="icon">=</span><span class="label">Balance</span><span class="value mono" id="totalBalance">₱0.00</span></div>
-        <div class="saved"><span class="icon">◆</span><span class="label">Total Saved</span><span class="value mono" id="totalSaved">₱0.00</span></div>
-        <div class="bankbal"><span class="icon">🏦</span><span class="label">Bank/Personal Balance</span><span class="value mono" id="totalBankBalance">₱0.00</span></div>
+      <div class="stats" id="statsGrid">
+        <div class="income clickable" data-filter="Income" role="button" tabindex="0" aria-label="View income entries"><span class="icon">↑</span><span class="label">Income</span><span class="value mono" id="totalIncome">₱0.00</span></div>
+        <div class="expense clickable" data-filter="Expense" role="button" tabindex="0" aria-label="View expense entries"><span class="icon">↓</span><span class="label">Expenses</span><span class="value mono" id="totalExpense">₱0.00</span></div>
+        <div class="balance clickable" data-filter="All" role="button" tabindex="0" aria-label="View all entries"><span class="icon">=</span><span class="label">Balance</span><span class="value mono" id="totalBalance">₱0.00</span></div>
+        <div class="saved clickable" data-filter="Savings" role="button" tabindex="0" aria-label="View savings entries"><span class="icon">◆</span><span class="label">Total Saved</span><span class="value mono" id="totalSaved">₱0.00</span></div>
+        <div class="bankbal clickable" data-filter="bank" role="button" tabindex="0" aria-label="View bank and personal balances"><span class="icon">🏦</span><span class="label">Bank/Personal Balance</span><span class="value mono" id="totalBankBalance">₱0.00</span></div>
       </div>
       <div class="saved-breakdown" id="savedBreakdown"></div>
     </div>
@@ -986,8 +1022,8 @@
       <div class="cat-bars" id="catBars"><div class="cat-empty">No expenses for this period.</div></div>
     </div>
 
-    <div class="card card-entries" style="margin-top:1.4rem;">
-      <div class="card-head"><span id="tableTitle">All Entries</span></div>
+    <div class="card card-entries" id="ledgerCard" style="margin-top:1.4rem;">
+      <div class="card-head"><span id="tableTitle">All Entries</span><span id="filterChipWrap"></span></div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -1045,6 +1081,7 @@
   let editingId = null;
   let viewMonth = new Date();
   let showAll = false;
+  let activeFilter = null; // null | 'Income' | 'Expense' | 'All' | 'Savings'
 
   let goals = [];
   let contributions = [];
@@ -1145,6 +1182,12 @@
     if (!btn) return;
     closeActionMenu();
     const action = btn.dataset.action;
+    if (action === 'viewAll'){
+      showAll = true;
+      render();
+      document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
     if (action === 'entry'){ resetForm(); }
     if (action === 'goal'){ resetGoalForm(); }
     if (action === 'contrib'){ resetContribForm(); }
@@ -1211,6 +1254,7 @@
   allTimeBtn.addEventListener('click', () => {
     showAll = true;
     render();
+    document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
   cancelEditBtn.addEventListener('click', resetForm);
@@ -1329,7 +1373,13 @@
     allTimeBtn.classList.toggle('active-all', showAll);
     monthLabel.textContent = showAll ? "All time" :
       viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-    tableTitle.textContent = showAll ? "All entries (income, expenses & savings)" : "This month's entries (income, expenses & savings)";
+    const filterLabels = { Income: 'Income only', Expense: 'Expenses only', All: 'Income & expenses (no savings)', Savings: 'Savings only' };
+    const baseTitle = showAll ? "All entries" : "This month's entries";
+    tableTitle.textContent = activeFilter ? baseTitle : (showAll ? "All entries (income, expenses & savings)" : "This month's entries (income, expenses & savings)");
+    renderFilterChip(activeFilter ? filterLabels[activeFilter] : null);
+    [...document.querySelectorAll('.stats > div.clickable')].forEach(el => {
+      el.classList.toggle('filter-active', !!activeFilter && el.dataset.filter === activeFilter);
+    });
 
     const periodTx = currentPeriodTx();
     const periodContribs = currentPeriodContribs();
@@ -1342,16 +1392,20 @@
     for (const t of periodTx){
       const amt = Number(t.amount);
       if (t.type === "Income") income += amt; else { expense += amt; catTotals[t.category] = (catTotals[t.category]||0) + amt; }
+      if (activeFilter === 'Savings') continue;
+      if (activeFilter === 'Income' && t.type !== 'Income') continue;
+      if (activeFilter === 'Expense' && t.type !== 'Expense') continue;
       unified.push({ kind: 'tx', date: t.date, id: t.id, sortKey: t.date, node: t, amt });
     }
     for (const c of periodContribs){
       const amt = Number(c.amount);
       if (c.type === "Deposit") deposits += amt; else withdrawals += amt;
+      if (activeFilter === 'Income' || activeFilter === 'Expense' || activeFilter === 'All') continue;
       unified.push({ kind: 'contrib', date: c.date, id: c.id, sortKey: c.date, node: c, amt });
     }
 
     if (unified.length === 0){
-      txBody.innerHTML = `<tr class="empty-row"><td colspan="4">No entries for this period.</td></tr>`;
+      txBody.innerHTML = `<tr class="empty-row"><td colspan="4">No entries${activeFilter ? ' for this filter' : ' for this period'}.</td></tr>`;
     } else {
       const sorted = unified.sort((a,b) => (a.sortKey < b.sortKey ? 1 : -1));
       const rowsHtml = [];
@@ -1389,6 +1443,41 @@
     renderBankBalances();
     scheduleFitAmounts();
   }
+
+  function renderFilterChip(label){
+    const wrap = document.getElementById('filterChipWrap');
+    if (!wrap) return;
+    wrap.innerHTML = label
+      ? `<span class="table-filter-chip">${label}<button type="button" id="clearFilterBtn" aria-label="Clear filter">✕</button></span>`
+      : "";
+    const btn = document.getElementById('clearFilterBtn');
+    if (btn) btn.addEventListener('click', () => { activeFilter = null; render(); });
+  }
+
+  // Clicking (or Enter/Space-ing) a stat card in Overall Summary filters
+  // the ledger table below to just that slice, and scrolls it into view
+  // so the filtered transactions are actually visible right away.
+  function applyStatFilter(filterKey){
+    if (filterKey === 'bank'){
+      document.getElementById('bankWrap').closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    activeFilter = (activeFilter === filterKey) ? null : filterKey;
+    render();
+    document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  document.getElementById('statsGrid').addEventListener('click', (e) => {
+    const el = e.target.closest('.clickable');
+    if (!el) return;
+    applyStatFilter(el.dataset.filter);
+  });
+  document.getElementById('statsGrid').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const el = e.target.closest('.clickable');
+    if (!el) return;
+    e.preventDefault();
+    applyStatFilter(el.dataset.filter);
+  });
 
   // Your accounts/cards — shown on the dashboard even before they have any
   // entries yet, so you can see all of them at a glance. KNOWN_ACCOUNTS are
