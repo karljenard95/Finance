@@ -403,7 +403,13 @@
   .bank-tx-amt{ font-family:'JetBrains Mono',monospace; font-weight:600; flex-shrink:0; }
   .bank-tx-amt.Income{ color:var(--income); }
   .bank-tx-amt.Expense{ color:var(--expense); }
-  .bank-tx-empty, .bank-tx-more{ padding:0.6rem 1.2rem; font-size:0.72rem; color:var(--text-dim); }
+  .bank-tx-empty{ padding:0.6rem 1.2rem; font-size:0.72rem; color:var(--text-dim); }
+  .bank-tx-more{
+    display:block; width:100%; padding:0.6rem 1.2rem; font-size:0.72rem;
+    color:var(--gold-2); background:none; border:none; border-top:1px solid var(--rule-soft);
+    text-align:left; cursor:pointer; font-family:inherit; font-weight:600;
+  }
+  .bank-tx-more:hover{ background:var(--gold-soft); color:var(--gold-2); }
 
 
   /* ---- Manage Accounts panel (inside drawer) ---- */
@@ -1559,14 +1565,20 @@
         .filter(t => accountKey(t.account) === accountKey(acc))
         .sort((a, b) => (a.date < b.date ? 1 : -1));
       const shown = accTx.slice(0, 6);
-      const rowsHtml = shown.length === 0
-        ? `<div class="bank-tx-empty">No entries on this account yet.</div>`
-        : shown.map(t => `
+      const restAcc = accTx.slice(6);
+      const rowHtmlAcc = t => `
             <div class="bank-tx-row">
               <span class="bank-tx-date mono">${t.date}</span>
               <span class="bank-tx-desc">${t.description ? t.description : t.category}</span>
               <span class="bank-tx-amt ${t.type}">${t.type === 'Expense' ? '−' : '+'}${fmt(t.amount)}</span>
-            </div>`).join("") + (accTx.length > shown.length ? `<div class="bank-tx-more">+ ${accTx.length - shown.length} more entr${accTx.length - shown.length === 1 ? 'y' : 'ies'}</div>` : "");
+            </div>`;
+      const rowsHtml = shown.length === 0
+        ? `<div class="bank-tx-empty">No entries on this account yet.</div>`
+        : shown.map(rowHtmlAcc).join("")
+          + (restAcc.length > 0
+              ? `<div class="bank-tx-rest" hidden>${restAcc.map(rowHtmlAcc).join("")}</div>
+                 <button type="button" class="bank-tx-more bank-tx-more-btn">+ ${restAcc.length} more entr${restAcc.length === 1 ? 'y' : 'ies'}</button>`
+              : "");
 
       return `
       <div class="bank-card ${bal < 0 ? 'negative' : ''}">
@@ -1586,6 +1598,17 @@
   // description) that add up to its total — makes it obvious the balance
   // is coming straight from your transactions, not a separate number.
   document.getElementById('bankWrap').addEventListener('click', (e) => {
+    const moreBtn = e.target.closest('.bank-tx-more-btn');
+    if (moreBtn){
+      const list = moreBtn.closest('.bank-tx-list');
+      const rest = list.querySelector('.bank-tx-rest');
+      if (rest){
+        if (!moreBtn.dataset.collapsedLabel) moreBtn.dataset.collapsedLabel = moreBtn.textContent;
+        rest.hidden = !rest.hidden;
+        moreBtn.textContent = rest.hidden ? moreBtn.dataset.collapsedLabel : 'Show less';
+      }
+      return;
+    }
     const btn = e.target.closest('.bank-card-toggle');
     if (!btn) return;
     btn.closest('.bank-card').classList.toggle('expanded');
@@ -1699,14 +1722,20 @@
         .filter(t => t.type === 'Expense' && t.category === cat)
         .sort((a, b) => (a.date < b.date ? 1 : -1));
       const shown = catTx.slice(0, 6);
-      const rowsHtml = shown.length === 0
-        ? `<div class="bank-tx-empty">No entries in this category yet.</div>`
-        : shown.map(t => `
+      const rest = catTx.slice(6);
+      const rowHtml = t => `
             <div class="bank-tx-row">
               <span class="bank-tx-date mono">${t.date}</span>
               <span class="bank-tx-desc">${t.description ? t.description : t.category}</span>
               <span class="bank-tx-amt Expense">−${fmt(t.amount)}</span>
-            </div>`).join("") + (catTx.length > shown.length ? `<div class="bank-tx-more">+ ${catTx.length - shown.length} more entr${catTx.length - shown.length === 1 ? 'y' : 'ies'}</div>` : "");
+            </div>`;
+      const rowsHtml = shown.length === 0
+        ? `<div class="bank-tx-empty">No entries in this category yet.</div>`
+        : shown.map(rowHtml).join("")
+          + (rest.length > 0
+              ? `<div class="bank-tx-rest" hidden>${rest.map(rowHtml).join("")}</div>
+                 <button type="button" class="bank-tx-more bank-tx-more-btn">+ ${rest.length} more entr${rest.length === 1 ? 'y' : 'ies'}</button>`
+              : "");
 
       return `<div class="cat-row">
         <button type="button" class="cat-row-toggle" data-cat="${cat}">
@@ -1720,6 +1749,17 @@
   // Expand/collapse a category row to reveal the actual entries behind it —
   // same interaction as the Bank / Personal Balance cards above.
   document.getElementById('catBars').addEventListener('click', (e) => {
+    const moreBtn = e.target.closest('.bank-tx-more-btn');
+    if (moreBtn){
+      const list = moreBtn.closest('.bank-tx-list');
+      const rest = list.querySelector('.bank-tx-rest');
+      if (rest){
+        if (!moreBtn.dataset.collapsedLabel) moreBtn.dataset.collapsedLabel = moreBtn.textContent;
+        rest.hidden = !rest.hidden;
+        moreBtn.textContent = rest.hidden ? moreBtn.dataset.collapsedLabel : 'Show less';
+      }
+      return;
+    }
     const btn = e.target.closest('.cat-row-toggle');
     if (!btn) return;
     btn.closest('.cat-row').classList.toggle('expanded');
