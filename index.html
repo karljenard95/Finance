@@ -222,9 +222,10 @@
     z-index:900; opacity:0; pointer-events:none; transition:opacity .18s ease;
   }
   .tx-modal-overlay.open{ opacity:1; pointer-events:auto; }
-  body.tx-modal-open{ overflow:hidden; }
+  html.tx-modal-open{ overflow:hidden; }
+  body.tx-modal-open{ overflow:hidden; position:fixed; left:0; right:0; width:100%; }
   body.tx-modal-open #ledgerCard{
-    position:fixed; inset:0; margin:0; transform:none;
+    position:fixed !important; inset:0; margin:0 !important; transform:none;
     width:100vw; height:100vh; height:100dvh; max-height:none;
     border-radius:0; border:none;
     padding-top:env(safe-area-inset-top);
@@ -1262,6 +1263,7 @@
   const txModalClose = document.getElementById('txModalClose');
   const txSearchInput = document.getElementById('txSearchInput');
   const txSearchClear = document.getElementById('txSearchClear');
+  let txModalScrollY = 0;
   function openTxModal(){
     showAll = true;
     tableExpanded = false;
@@ -1269,12 +1271,21 @@
     txSearchInput.value = "";
     txSearchClear.classList.remove('show');
     render();
+    // Lock the background in place (not just overflow:hidden — that alone
+    // still lets iOS Safari rubber-band-scroll the page behind a fixed
+    // modal), by pinning body at its current scroll offset.
+    txModalScrollY = window.scrollY || window.pageYOffset || 0;
+    document.documentElement.classList.add('tx-modal-open');
     document.body.classList.add('tx-modal-open');
+    document.body.style.top = `-${txModalScrollY}px`;
     txModalOverlay.classList.add('open');
     setTimeout(() => txSearchInput.focus(), 250);
   }
   function closeTxModal(){
+    document.documentElement.classList.remove('tx-modal-open');
     document.body.classList.remove('tx-modal-open');
+    document.body.style.top = '';
+    window.scrollTo(0, txModalScrollY);
     txModalOverlay.classList.remove('open');
     showAll = false;
     tableExpanded = false;
