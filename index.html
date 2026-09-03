@@ -214,6 +214,31 @@
     display:flex; justify-content:space-between; align-items:center;
   }
 
+  /* ---- "View All Transactions" popup : reuses #ledgerCard itself, just
+     repositioned as a fixed, centered modal with a backdrop, instead of
+     scrolling the main page down to it. ---- */
+  .tx-modal-overlay{
+    position:fixed; inset:0; background:rgba(22,35,58,0.55);
+    z-index:900; opacity:0; pointer-events:none; transition:opacity .18s ease;
+  }
+  .tx-modal-overlay.open{ opacity:1; pointer-events:auto; }
+  body.tx-modal-open{ overflow:hidden; }
+  body.tx-modal-open #ledgerCard{
+    position:fixed; top:5vh; left:50%; transform:translateX(-50%);
+    width:min(720px, 92vw); max-height:90vh; margin:0;
+    display:flex; flex-direction:column; z-index:901;
+    box-shadow:0 30px 60px -20px rgba(22,35,58,0.5);
+  }
+  body.tx-modal-open #ledgerCard .table-wrap{ overflow-y:auto; }
+  .tx-modal-close{
+    display:none; align-items:center; justify-content:center;
+    width:28px; height:28px; flex-shrink:0; border-radius:8px;
+    background:var(--paper-2); border:1px solid var(--rule-soft); color:var(--ink-soft);
+    cursor:pointer; font-size:0.9rem; line-height:1;
+  }
+  .tx-modal-close:hover{ background:var(--gold-soft); color:var(--gold-2); }
+  body.tx-modal-open .tx-modal-close{ display:flex; }
+
   /* ---- Overall Summary : redesigned stat grid ---- */
   .stats{
     display:grid; grid-template-columns:repeat(auto-fit, minmax(155px,1fr));
@@ -573,6 +598,15 @@
   .row-actions .del:hover{ color:var(--expense); }
   .empty-row td{ text-align:center; color:var(--text-dim); padding:2.4rem 0; font-size:0.85rem; }
 
+  .table-view-more-row td{ padding:0; border-bottom:none; }
+  .table-view-more{
+    display:block; width:100%; padding:0.75rem 0.8rem; font-size:0.76rem;
+    color:var(--gold-2); background:var(--paper-2); border:none; border-top:1px dashed var(--rule);
+    text-align:center; cursor:pointer; font-family:'JetBrains Mono',monospace; font-weight:600;
+    letter-spacing:0.03em; transition:background .15s ease;
+  }
+  .table-view-more:hover{ background:var(--gold-soft); color:var(--gold-2); }
+
   /* ---- Savings Goals : elevated, standalone section ---- */
   .savings-section{ margin-top:2.4rem; }
   .savings-section-label{
@@ -823,6 +857,7 @@
 <body>
 
 <div class="drawer-overlay" id="drawerOverlay"></div>
+<div class="tx-modal-overlay" id="txModalOverlay"></div>
 <aside class="drawer" id="drawer" aria-label="Add entry menu">
   <div class="drawer-head">
     <span id="drawerTitle">New Transaction</span>
@@ -1029,7 +1064,13 @@
     </div>
 
     <div class="card card-entries" id="ledgerCard" style="margin-top:1.4rem;">
-      <div class="card-head"><span id="tableTitle">All Entries</span><span id="filterChipWrap"></span></div>
+      <div class="card-head">
+        <span id="tableTitle">All Entries</span>
+        <span style="display:flex; align-items:center; gap:0.6rem;">
+          <span id="filterChipWrap"></span>
+          <button type="button" class="tx-modal-close" id="txModalClose" aria-label="Close">✕</button>
+        </span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -1088,6 +1129,8 @@
   let viewMonth = new Date();
   let showAll = false;
   let activeFilter = null; // null | 'Income' | 'Expense' | 'All' | 'Savings'
+  let tableExpanded = false; // when viewing a single month, entries are capped at TABLE_PAGE_SIZE until this is toggled on
+  const TABLE_PAGE_SIZE = 5;
 
   let goals = [];
   let contributions = [];
@@ -1176,6 +1219,32 @@
     hamburgerBtn.classList.remove('active');
     hamburgerBtn.setAttribute('aria-expanded', 'false');
   }
+
+  // ---- "View All Transactions" popup : shows the ledger card as a
+  // floating modal over whatever the user was looking at, instead of
+  // jumping the whole page down to it. Closing returns to the month view.
+  const txModalOverlay = document.getElementById('txModalOverlay');
+  const txModalClose = document.getElementById('txModalClose');
+  function openTxModal(){
+    showAll = true;
+    tableExpanded = false;
+    render();
+    document.body.classList.add('tx-modal-open');
+    txModalOverlay.classList.add('open');
+  }
+  function closeTxModal(){
+    document.body.classList.remove('tx-modal-open');
+    txModalOverlay.classList.remove('open');
+    showAll = false;
+    tableExpanded = false;
+    render();
+  }
+  txModalOverlay.addEventListener('click', closeTxModal);
+  txModalClose.addEventListener('click', closeTxModal);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.body.classList.contains('tx-modal-open')) closeTxModal();
+  });
+
   hamburgerBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (actionMenu.classList.contains('open')) closeActionMenu(); else openActionMenu();
@@ -1189,9 +1258,7 @@
     closeActionMenu();
     const action = btn.dataset.action;
     if (action === 'viewAll'){
-      showAll = true;
-      render();
-      document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      openTxModal();
       return;
     }
     if (action === 'entry'){ resetForm(); }
@@ -1249,16 +1316,19 @@
 
   document.getElementById('prevMonth').addEventListener('click', () => {
     showAll = false;
+    tableExpanded = false;
     viewMonth.setMonth(viewMonth.getMonth() - 1);
     render();
   });
   document.getElementById('nextMonth').addEventListener('click', () => {
     showAll = false;
+    tableExpanded = false;
     viewMonth.setMonth(viewMonth.getMonth() + 1);
     render();
   });
   allTimeBtn.addEventListener('click', () => {
     showAll = true;
+    tableExpanded = false;
     render();
     document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
@@ -1414,8 +1484,13 @@
       txBody.innerHTML = `<tr class="empty-row"><td colspan="4">No entries${activeFilter ? ' for this filter' : ' for this period'}.</td></tr>`;
     } else {
       const sorted = unified.sort((a,b) => (a.sortKey < b.sortKey ? 1 : -1));
+      // When looking at a single month (not "All time"), only paint the
+      // first TABLE_PAGE_SIZE entries — the rest stay behind a "View more"
+      // button so a busy month doesn't dump a huge table on screen.
+      const capped = (!showAll && !tableExpanded) ? sorted.slice(0, TABLE_PAGE_SIZE) : sorted;
+      const hiddenCount = sorted.length - capped.length;
       const rowsHtml = [];
-      for (const item of sorted){
+      for (const item of capped){
         if (item.kind === 'tx'){
           const t = item.node;
           rowsHtml.push(`<tr>
@@ -1437,6 +1512,15 @@
             </td></tr>`);
         }
       }
+      if (hiddenCount > 0){
+        rowsHtml.push(`<tr class="table-view-more-row"><td colspan="4">
+          <button type="button" class="table-view-more" id="tableViewMoreBtn">+ View ${hiddenCount} more entr${hiddenCount === 1 ? 'y' : 'ies'}</button>
+        </td></tr>`);
+      } else if (tableExpanded && !showAll && sorted.length > TABLE_PAGE_SIZE){
+        rowsHtml.push(`<tr class="table-view-more-row"><td colspan="4">
+          <button type="button" class="table-view-more" id="tableViewMoreBtn">Show less</button>
+        </td></tr>`);
+      }
       // Single write — far cheaper than appendChild-per-row for larger ledgers.
       txBody.innerHTML = rowsHtml.join("");
     }
@@ -1457,7 +1541,7 @@
       ? `<span class="table-filter-chip">${label}<button type="button" id="clearFilterBtn" aria-label="Clear filter">✕</button></span>`
       : "";
     const btn = document.getElementById('clearFilterBtn');
-    if (btn) btn.addEventListener('click', () => { activeFilter = null; render(); });
+    if (btn) btn.addEventListener('click', () => { activeFilter = null; tableExpanded = false; render(); });
   }
 
   // Clicking (or Enter/Space-ing) a stat card in Overall Summary filters
@@ -1469,6 +1553,7 @@
       return;
     }
     activeFilter = (activeFilter === filterKey) ? null : filterKey;
+    tableExpanded = false;
     render();
     document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1766,6 +1851,15 @@
   });
 
   txBody.addEventListener('click', async (e) => {
+    const viewMoreBtn = e.target.closest('#tableViewMoreBtn');
+    if (viewMoreBtn){
+      tableExpanded = !tableExpanded;
+      render();
+      if (!tableExpanded){
+        document.getElementById('ledgerCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      return;
+    }
     const delBtn = e.target.closest('.del');
     const editBtn = e.target.closest('.edit');
     const btn = delBtn || editBtn;
