@@ -1710,8 +1710,9 @@
       const t = transactions.find(t => t.id === editingId);
       if (t) Object.assign(t, payload);
       render();
-      await callScript('POST', { action: 'update', id: editingId, ...payload });
       resetForm();
+      closeDrawer();
+      await callScript('POST', { action: 'update', id: editingId, ...payload });
       return;
     }
 
@@ -1719,6 +1720,7 @@
     transactions.push({ ...payload, id: tempId });
     render();
     resetForm();
+    closeDrawer();
 
     const res = await callScript('POST', { action: 'add', ...payload });
     if (res && res.success){
@@ -2071,6 +2073,7 @@
       if (g) Object.assign(g, { name, targetAmount: targetAmount ? Number(targetAmount) : 0, targetDate });
       renderSavings();
       resetGoalForm();
+      closeDrawer();
       await callScript('POST', payload);
       return;
     }
@@ -2080,6 +2083,7 @@
     goals.push({ id: tempId, name, targetAmount: Number(targetAmount), targetDate });
     renderSavings();
     goalForm.reset();
+    closeDrawer();
 
     const res = await callScript('POST', payload);
     if (res && res.success){
@@ -2108,6 +2112,7 @@
       renderSavings();
       render();
       resetContribForm();
+      closeDrawer();
       await callScript('POST', payload);
       return;
     }
@@ -2124,6 +2129,7 @@
     renderSavings();
     render();
     resetContribForm();
+    closeDrawer();
 
     const res = await callScript('POST', payload);
     if (res && res.success){
